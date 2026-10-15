@@ -1,0 +1,11 @@
+build*/
+__pycache__/
+test-artifacts/
+node_modules/
+.venv*/
+dist/
+.DS_Store
+.codex/
+.env
+.env.*
+!.env.example

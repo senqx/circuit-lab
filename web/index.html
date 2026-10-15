@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#242825">
+  <meta name="description" content="A little curiosity. A few connections. Discover logic by playing with signals, switches, and ideas.">
+  <title>CircuIT Lab — Curiosity is all you need.</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a href="#" class="brand" aria-label="CircuIT Lab home"><img src="icon.svg" alt="" width="29" height="29"><span>Circu<span class="brand-dot">IT</span> Lab</span></a>
+    <nav class="topnav" aria-label="Main"><button id="journey-nav" class="nav-link active" aria-expanded="false" aria-controls="journey-sidebar">Your journey <span id="nav-progress">0 / 24</span></button><button id="sandbox-nav" class="nav-link free-mode-button"><span aria-hidden="true">✳</span> Free play mode</button></nav>
+    <div class="header-right"><span class="curiosity">Curiosity is all you need.</span><button id="guide-button" class="handbook-button" title="Open the lab handbook" aria-label="Open the lab handbook"></button></div>
+  </header>
+  <button id="journey-scrim" class="scrim" hidden aria-label="Close journey"></button>
+  <aside class="journey-sidebar" id="journey-sidebar" aria-label="Your journey" inert>
+    <div class="journey-heading"><span class="eyebrow">YOUR EXPLORER'S MAP</span><button id="close-journey" class="icon-button" aria-label="Close journey">×</button></div>
+    <h2>From a light bulb<br>to a little computer.</h2>
+    <div class="journey-progress"><div class="progress-track"><div id="progress-bar"></div></div><span id="progress-fraction">0 / 24</span></div>
+    <p class="journey-caption">Build each experiment. Check it. Use what you learned in the next one.</p>
+    <button id="continue-journey" class="button primary"></button>
+    <label class="path-option"><input type="checkbox" id="path-toggle"> Keep chapter path visible</label>
+    <nav id="lesson-list" aria-label="Choose a discovery"></nav>
+    <div class="sidebar-bottom"><span class="sprout-mark">✳</span><p>Curiosity is all you need.<br><span>Explore in any order. Hints are always here.</span></p></div>
+  </aside>
+  <main>
+    <nav id="learning-path" hidden class="learning-path" aria-label="Your learning path"></nav>
+    <div class="studio">
+      <section class="workbench" aria-label="Circuit workbench">
+        <div class="bench-toolbar"><div class="live-label">WORKBENCH <span id="part-count">0 parts</span></div><div class="tools"><button id="undo-button" class="icon-button" title="Undo (Ctrl+Z)" aria-label="Undo"></button><button id="redo-button" class="icon-button" title="Redo (Ctrl+Shift+Z)" aria-label="Redo"></button><span class="divider"></span><button id="flow-button" class="icon-button" title="Animate wires carrying 1" aria-label="Animate wires carrying 1" aria-pressed="true"></button><button id="export-button" class="icon-button" title="Export circuit" aria-label="Export circuit"></button><button id="import-button" class="icon-button" title="Import circuit" aria-label="Import circuit"></button><button id="clear-button" class="icon-button" title="Start fresh" aria-label="Clear workbench"></button></div></div>
+        <div class="canvas-wrap" id="canvas-wrap">
+          <div id="canvas" role="application" aria-label="Circuit editor. Connect a sending dot to a receiving dot. The bulb connects from below. Drag a connected receiving dot to redirect its wire. Click numbers to change them. Drag empty board to select. Shift, Ctrl or Command click adds or removes an item. Space-drag or middle-drag pans. Delete removes the selection. Tab to pins and press Enter to connect." tabindex="0">
+            <div id="diagram"><svg xmlns="http://www.w3.org/2000/svg" width="1" height="1" class="circuit-svg"><g id="wires"></g><g id="wire-highlight" visibility="hidden" pointer-events="none"><path class="wire-casing"/><path class="wire-highlight"/></g><g id="nodes"></g><g id="wire-preview" pointer-events="none"></g><rect id="selection-box" class="selection-box" visibility="hidden" pointer-events="none"/></svg></div>
+          </div>
+          <div id="signal-flow" aria-hidden="true"></div>
+          <output id="wire-trace" class="wire-trace" hidden></output>
+          <div id="selection-tools" class="selection-tools" hidden><span id="selection-name" role="status"></span><button id="delete-button" class="icon-button" aria-label="Delete selection" title="Delete selection"></button></div>
+          <div class="canvas-bottom"><div id="gesture-tools" class="gesture-tools" hidden><button id="cancel-gesture" type="button">Cancel <kbd>Esc</kbd></button><span id="gesture-message"></span></div><div class="zoom-controls"><button id="arrange-button" class="tidy-button" title="Arrange blocks from inputs to outputs. Undo restores your layout."></button><button id="zoom-out" class="icon-button" aria-label="Zoom out">−</button><span id="zoom-value">100%</span><button id="zoom-in" class="icon-button" aria-label="Zoom in">+</button><button id="fit-button" class="icon-button" aria-label="Fit circuit" title="Fit circuit (F)"></button></div></div>
+        </div>
+        <div id="clock-bar" class="clock-bar" hidden><span><span class="clock-icon"></span><strong>Memory clock</strong><span id="tick-count">Step 0</span></span><div><button id="reset-clock" class="text-button">Reset memory</button><button id="tick-button" class="button small"></button></div></div>
+        <aside class="parts-tray" aria-label="Building blocks"><div class="tray-heading"><span class="eyebrow">BLOCKS</span><span id="tray-help">Drag or click to add</span></div><div id="parts" class="parts-list"></div></aside>
+      </section>
+      <div class="task-dock">
+      <div class="task-panel-bar"><div class="breadcrumb"><span id="chapter-label">SIGNALS</span><span class="breadcrumb-dot">/</span><span id="lesson-number">01</span></div><button id="task-toggle" class="panel-toggle" aria-expanded="true" aria-controls="inspector"></button></div>
+      <aside class="inspector" id="inspector" aria-label="Experiment instructions">
+        <div class="task-heading"><h1 id="lesson-title">Send your first signal</h1><p id="lesson-subtitle">One connection. Your first discovery.</p></div>
+        <div class="inspector-tabs" role="tablist"><button id="learn-tab" role="tab" aria-selected="true" class="active">Your task</button><button id="test-tab" role="tab" aria-selected="false">Check results <span id="test-dot"></span></button></div>
+        <div id="learn-panel" class="inspector-content" role="tabpanel"></div><div id="test-panel" class="inspector-content" role="tabpanel" hidden></div>
+        <div class="inspector-footer"><button id="back-to-board" class="text-button back-to-board">Back to the workbench ↑</button></div>
+      </aside>
+      <div class="task-actions" aria-label="Experiment actions">
+        <nav id="task-navigation" class="experiment-nav" aria-label="Previous and next experiments"></nav>
+        <div class="lesson-actions"><button id="check-button" class="button primary"></button></div>
+      </div>
+      </div>
+    </div>
+    <footer class="workspace-footer"><span id="status-message"><span class="status-dot"></span> Try things. Change your mind. That’s how you learn.</span><span id="saved-label" class="saved-label">Saved on this device</span><span class="footer-shortcut" aria-label="Keyboard shortcuts"><span><kbd>Space</kbd> + drag to pan</span><span><kbd>F</kbd> fit circuit</span><span title="Delete or Backspace removes the selection"><kbd>Del</kbd> remove</span><span><kbd>?</kbd> help</span></span></footer>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <dialog id="modal"><button class="modal-close icon-button" aria-label="Close dialog"></button><div id="modal-content"></div></dialog>
+  <input id="import-file" type="file" accept=".json,application/json" hidden>
+  <noscript>Enable JavaScript to start experimenting with signals.</noscript>
+</body>
+</html>

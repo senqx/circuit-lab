@@ -1,0 +1,42 @@
+import { glyph } from './symbols.mjs';
+
+// Teaching text only. The C++ engine owns every circuit rule and evaluation.
+export const handbookSpreads = [
+  {title:'How to play',pages:[
+    {title:'Build your<br>first circuit.',body:`<p><strong>Welcome to CircuIT Lab.</strong> Build a computer, one discovery at a time. Start small: send a signal, light a bulb, then build rules from what you know.</p>
+      <ol class="book-steps"><li><strong>Read your mission.</strong> The task panel names the block you’re building. Its truth table or number examples show what your circuit must do.</li><li><strong>Place and connect.</strong> Drag blocks from the inventory onto the blue board, or click to add. Click a sending dot, then a receiving dot — or drag between them.</li><li><strong>Try it out.</strong> Click an input’s number to change it. Watch the wires and outputs. You can also click a truth-table row to try those inputs.</li><li><strong>Check your circuit.</strong> Check circuit tries every case. Pass them all to use Next. Previous reopens your saved work; Skip lets you return to an unfinished task.</li></ol>
+      <p class="book-note">Curiosity is all you need. There’s no timer, and you can always undo.</p>`},
+    {title:'Meet the<br>ingredients.',body:`<dl class="tool-definitions">
+      <div><dt><span class="tool-token">${glyph('INPUT')}</span>Inputs: you choose</dt><dd>Click the number to switch between 0 and 1. The pointed end sends your signal.</dd></div>
+      <div><dt><span class="tool-token">1</span>Power: always on</dt><dd>A constant source of 1. Unlike an input, it never changes.</dd></div>
+      <div><dt><span class="tool-token">→</span>Wires: follow the message</dt><dd>Gold flows at 1; blue stays still at 0. Hover over or select a wire to highlight both ends. Crossings pass over each other; they do not join. A dotted wire has no known value yet.</dd></div>
+      <div><dt><span class="tool-token">${glyph('OUTPUT')}</span>Outputs: see the result</dt><dd>Bulbs glow at 1 and stay dark at 0. Connect to the dot underneath; drag a connected dot to redirect its wire. A ? means there is no known signal yet.</dd></div></dl>
+      <p class="book-note"><strong>Changed your mind?</strong> Esc or right-click cancels a drag. Release a wire away from a pin, or a block outside the board, to cancel. For a wire started by clicking, click empty board or Cancel. Undo reverses a completed edit.</p>`}
+  ]},
+  {title:'Gates & numbers',pages:[
+    {title:'Small rules.<br>Big ideas.',body:`<p>A gate turns incoming signals into a new signal. Its shape tells you which rule it follows.</p>
+      <dl class="tool-definitions"><div><dt><span class="tool-token">${glyph('GATE')}</span>A controlled bridge</dt><dd>D means data; EN means enable. EN opens or closes the path from D to output Q. In the railway example, D is the train and EN is permission to pass. The bridge inside each switch is always visible, so you can watch it move as EN changes. Try both kinds of switch.</dd></div>
+      <div><dt><span class="tool-token">${glyph('NAND')}</span>NAND: the universal gate</dt><dd>Only 11 produces 0. Every other pair produces 1. Build this first from controlled switches, then reuse it for other logic gates.</dd></div>
+      <div><dt><span class="tool-token">${glyph('NOT')}</span>NOT: the opposite</dt><dd>Connect the same signal to both inputs of NAND. 0 becomes 1; 1 becomes 0. The tiny circle means “flip the result.”</dd></div>
+      <div><dt><span class="tool-token">${glyph('AND')}</span>AND: both together</dt><dd>The output is 1 only when both inputs are 1. Think: a train can leave when the doors are shut AND the track is clear.</dd></div>
+      <div><dt><span class="tool-token">${glyph('OR')}</span>OR: either will do</dt><dd>The output is 1 when at least one input is 1. These gates are made from NAND inside. Connect them to make bigger decisions.</dd></div></dl>`},
+    {title:'A number is<br>a few lights.',body:`<p>One bit is one 0 or 1. Four bits together can hold a number from 0 to 15. A thicker wire carries all four at once.</p>
+      <div class="binary-example" aria-label="Binary 1010: 8 plus 2 equals 10"><span>8<b class="on">1</b></span><span>4<b>0</b></span><span>2<b class="on">1</b></span><span>1<b>0</b></span><strong>= 10</strong></div>
+      <p>The square LEDs read like binary digits. Each position has a value: <strong>8, 4, 2, 1</strong>, from left to right. Add the values of the lights that are on. Here, 8 + 2 makes 10.</p>
+      <ol class="book-steps"><li><strong>Choose a number.</strong> Click a four-bit input to enter 0–15.</li><li><strong>Read the lights.</strong> The output shows four square LEDs with a 0 or 1 in each, plus the decimal number.</li><li><strong>Split and combine.</strong> Split bus gives you four separate signals. Join bus bundles four into a number.</li></ol>
+      <p class="book-note">Pins must have the same width. Use Split bus or Join bus to move between single signals and four-bit numbers.</p>`}
+  ]},
+  {title:'Memory & tools',pages:[
+    {title:'Remember<br>something.',body:`<p>Gates answer “what is happening now?” Memory can keep an answer for later. That turns a circuit into a machine with a history.</p>
+      <ol class="book-steps"><li><strong>Set the inputs.</strong> Choose the value you want to remember and any controls the task needs.</li><li><strong>Step the clock.</strong> Memory blocks capture their inputs together. The new output can stay even after an input changes.</li><li><strong>Watch a sequence.</strong> A counter advances, a register holds a number, and a processor follows instructions one step at a time.</li><li><strong>Start the sequence again.</strong> Reset memory clears the remembered state while keeping your circuit.</li></ol>
+      <p class="book-note">Check results shows the steps for memory experiments. Each row continues from the previous one. A clock mark means “capture now.”</p>`},
+    {title:'Make yourself<br>at home.',body:`<dl class="tool-definitions compact-tools">
+      <div><dt>Move & connect</dt><dd>Drag a part; it snaps into alignment when released. Hold Space and drag, or use the middle mouse button, to pan. On touchscreens, drag empty board. Scroll or pinch to zoom. Click two dots, or drag between them, to wire. Nearby compatible pins catch your wire; the highlighted dot is where it will connect. Drag a connected receiving dot to move that wire’s end. Cancelling puts it back; Undo restores a completed move.</dd></div>
+      <div><dt>Select & tidy</dt><dd>Drag a box across empty board to select blocks and wires. Shift, Ctrl or ⌘ click adds or removes items. Drag a selected block to move the group; Delete removes the selection. Lesson inputs and outputs stay. <strong>Tidy circuit</strong>, beside zoom, arranges everything from inputs to outputs. Undo restores your layout.</dd></div>
+      <div><dt>Change your mind</dt><dd>Select a wire to trace its endpoints, then Remove wire to delete it. Right-click also removes it. Undo brings it back. Reset experiment restores the lesson’s starting blocks; the trash can in Free play mode clears everything. Press Esc or right-click to cancel a wire or an inventory drag. Let go away from a pin to cancel a dragged wire. Drop a tray part outside the board to cancel. A wire started by clicking also has a Cancel button; clicking empty board cancels it.</dd></div>
+      <div><dt>Revisit your work</dt><dd>Previous reopens your saved circuit. Pass the experiment to use Next, or choose Skip to leave it unfinished and return later. The journey map jumps to any experiment. Your completed experiments stay complete.</dd></div>
+      <div><dt>Get a little help</dt><dd>Try a hint or inspect a worked example. Hide task folds away the task panel; Show task brings it back. Your journey opens the map. The chapter path is hidden unless you choose to keep it visible. Free play mode gives you all the parts and a green board. Import and Export in the workbench toolbar let you share your circuits.</dd></div>
+      <div><dt>Keep your creations</dt><dd>Your circuits save on this device. Export downloads a file; Import opens it in the matching experiment. Memory starts fresh when you return.</dd></div></dl>
+      <p class="book-shortcuts"><kbd>F</kbd> fit · <kbd>Ctrl / ⌘ Z</kbd> undo<br><kbd>Ctrl / ⌘ A</kbd> select all · <kbd>Delete</kbd> remove<br><kbd>Space + drag</kbd> pan · <kbd>?</kbd> handbook<br>Tab to a pin, then Enter to connect.</p>`}
+  ]}
+];

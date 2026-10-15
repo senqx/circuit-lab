@@ -1,0 +1,14 @@
+*
+!Dockerfile
+!CMakeLists.txt
+!requirements.txt
+!LICENSE
+!engine/**
+!examples/**
+!tests/engine_tests.cpp
+!server/**
+!web/**
+!deploy/**
+**/__pycache__
+**/*.pyc
+**/.DS_Store

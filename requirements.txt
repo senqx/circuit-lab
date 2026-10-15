@@ -1,0 +1,2 @@
+# Production only; local play needs just the Python standard library.
+gunicorn==26.2.0
