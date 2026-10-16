@@ -1,47 +1,50 @@
 # Engine design and integration
 
-The engine is a small C++17 library, with no dependency on a UI, HTTP, a filesystem, or a third-party JSON parser. Its public namespace is `signal_garden`, avoiding a collision with the standard `signal()` function.
+The engine is a small C++17 library, with no dependency on a UI, HTTP, a filesystem, or a third-party JSON parser. Its public namespace is `circuit`, avoiding a collision with the standard `signal()` function.
 
 ## Files and responsibilities
 
 | File | Responsibility |
 | --- | --- |
-| `engine.hpp` | Value types and native public functions |
+| `engine.h` | Value types and native public functions |
 | `engine.cpp` | Flattening, structural validation, scheduling, signal evaluation, synchronous state updates, solution checking |
 | `catalog.cpp` | Component metadata, compositional circuit recipes, lesson content, independent behavioral test specifications |
 | `bridge.cpp` / `bridge.h` | Opaque C handles and JSON response serialization |
 | `serve.py` | Local build-and-run launcher |
-| `server/engine.py` | Shared JSON-to-C-ABI argument conversion |
-| `server/app.py` | WSGI routes, public assets, request validation, and response headers |
-| `web/app.js` | Circuit editing, persistent SVG elements, controls, and local persistence |
-| `web/symbols.mjs` | Shared circuit symbols for the tray and board |
-| `web/board-geometry.mjs` | Shared block footprint, pin placement, and alignment on release |
-| `web/wire-router.mjs` | Geometry-only obstacle avoidance and orthogonal wire paths |
-| `web/flow-layer.mjs` | Native compositor transform animations for visible on-signals |
+| `src/server/engine.py` | Shared JSON-to-C-ABI argument conversion |
+| `src/server/app.py` | WSGI routes, public assets, request validation, and response headers |
+| `src/http_headers.py` | HTTP policy shared by the local launcher and native adapter |
+| `src/ui/app.js` | Circuit editing, persistent SVG elements, controls, and local persistence |
+| `src/ui/symbols.mjs` | Shared circuit symbols for the tray and board |
+| `src/ui/board-geometry.mjs` | Shared block footprint, pin placement, and alignment on release |
+| `src/ui/wire-router.mjs` | Geometry-only obstacle avoidance and orthogonal wire paths |
+| `src/ui/flow-layer.mjs` | Native compositor transform animations for visible on-signals |
+| `src/ui/engine/client.mjs` | Promise-based worker requests, timeouts, and worker recovery |
+| `src/ui/engine/worker.mjs` | Loads WebAssembly and executes requests away from the UI thread |
+| `src/ui/engine/bindings.mjs` | Typed JavaScript-to-C-ABI argument conversion and handle cleanup |
+| `src/ui/platform.mjs` | Browser storage, files, lifecycle events, and offline installation |
+| `scripts/build_app.py` | Emscripten build and complete static application assembly |
 
 ## Native use
 
 Add this project with `add_subdirectory`, then link your application to `signal_engine`. Its include directory is public.
 
 ```cpp
-#include <signal/engine.hpp>
 #include <iostream>
+#include <signal/engine.h>
 
 int main() {
-    using namespace signal_garden;
-    Circuit circuit;
-    circuit.nodes = {
-        {1, Kind::Input, 1},
-        {50, Kind::Output, 1},
-        {100, Kind::Not, 1}
-    };
-    circuit.wires = {
-        {1, 0, 100, 0},  // from node, output index, to node, input index
-        {100, 0, 50, 0}
-    };
-    Result result = simulate(circuit, {0});
-    if (!result.error.empty()) return 1;
-    std::cout << result.outputs[0] << '\n'; // 1
+  using namespace circuit;
+  Circuit circuit;
+  circuit.nodes = {{1, Kind::Input, 1}, {50, Kind::Output, 1}, {100, Kind::Not, 1}};
+  circuit.wires
+      = {{1, 0, 100, 0}, // from node, output index, to node, input index
+         {100, 0, 50, 0}};
+  Result result = simulate(circuit, {0});
+  if (!result.error.empty()) {
+    return 1;
+  }
+  std::cout << result.outputs[0] << '\n'; // 1
 }
 ```
 
@@ -49,11 +52,15 @@ int main() {
 
 Input and output terminals are ordered by ascending numeric node ID, independent of storage order. Ordinary node IDs are positive integers up to 1,000,000. IDs must be unique within each circuit. A wire goes from a component output to a component input. Each input accepts one wire; one output may fan out to many destinations. Junction components resolve multiple transistor drivers explicitly.
 
-Lesson circuits use input IDs `1, 2, …` and output IDs `50, 51, …`. `check` enforces their count, identity, and widths, then compares outputs with the independent specification. It accepts alternative recipes and unused unwired parts. The finished target chip cannot directly solve its own lesson, except in the introductory controlled-switch exercise that explicitly supplies it. `blank(target)` produces the lesson interface. `reference(level_id)` returns the lesson's example solution. By default it is the target chip's definition; a lesson may supply a different circuit to teach a particular construction. NAND is the first gate lesson and combines normal/reverse controlled switches with a constant 1. Reusable NOT, AND, OR, and XOR definitions build on NAND.
+Lesson circuits use input IDs `1, 2, …` and output IDs `50, 51, …`. `check` enforces their count, identity, and widths, then compares outputs with the independent specification. It accepts alternative recipes and unused unwired parts. The finished target chip cannot directly solve its own lesson, except in the introductory controlled-switch exercise that explicitly supplies it. `blank(target)` produces the lesson interface. `reference(levelId)` returns the lesson's example solution. By default it is the target chip's definition; a lesson may supply a different circuit to teach a particular construction. NAND is the first gate lesson and combines active-high/active-low controlled switches with a constant 1. Reusable NOT, AND, OR, and XOR definitions build on NAND.
 
-Call `components()`, `chapters()`, and `levels()` for immutable metadata. Chapter entries contain a name and learning goal; the HTTP catalog serializes them as objects in its `chapters` array. `component(kind)` provides ports, widths, display text, and the composite definition. A lesson's `allowed` list controls its inventory: recipe parts first, then previously introduced logic blocks. It is not a checker whitelist. Guided first-step text and scene identifiers also live in this catalog. `is_sequential(kind)` derives memory use from the component definition, so UIs do not maintain separate lists of memory chip types.
+Call `components()`, `chapters()`, and `levels()` for immutable metadata. Chapter entries contain a name and learning goal; the HTTP catalog serializes them as objects in its `chapters` array. `component(kind)` provides ports, widths, display text, and the composite definition. A lesson's `allowed` list controls its inventory: recipe parts first, then previously introduced logic blocks. It is not a checker whitelist. Guided first-step text and scene identifiers also live in this catalog. `isSequential(kind)` derives memory use from the component definition, so UIs do not maintain separate lists of memory chip types.
 
-`levels()` returns journey order; `level(id)` looks up a stable saved identifier. Never index the vector with `id - 1`: NAND moved before NOT and AND while retaining all existing lesson IDs. `test_vectors(id)` provides every expected row, in input order, or a consecutive stateful trace from zero memory. The HTTP catalog exposes those rows as `tests` and selected bus inputs as `exampleInputs` (`Level::example_inputs` in C++). UIs find those inputs in the existing rows to show useful examples without duplicating evaluation logic. Memory traces start with illustrative capture/hold operations before exercising the full range.
+Eight lessons also offer optional two-input NAND benchmarks: NOT 1, AND 2, OR 3, XOR 4, MUX 4, DEMUX 5, half adder 5, and full adder 9. `Level::nandTarget` and `nandHint` define them; zero disables the challenge. `Check::nand` reports the target, visible NAND count, other-part count, eligibility, and achievement. A correct circuit using only NANDs plus lesson terminals is eligible; reaching or beating the target earns the challenge. Every visible block counts, including unused ones. Mixed-gate solutions still complete a lesson. These are achievable teaching benchmarks in a specific gate library, not a physical area/delay/power optimizer.
+
+The shared C serializer exposes `nandChallenge` in catalog and check results (or `null` when absent). The UI saves the lowest eligible count as `bestNands` alongside existing completion data. Worked examples never record completion or a best count. The handbook's Circuit design spread teaches sum of products, Boolean identities, De Morgan's law, and sharing intermediate signals.
+
+`levels()` returns journey order; `level(id)` looks up a stable saved identifier. Never index the vector with `id - 1`: NAND moved before NOT and AND while retaining all existing lesson IDs. `testVectors(id)` provides every expected row, in input order, or a consecutive stateful trace from zero memory. The HTTP catalog exposes those rows as `tests` and selected bus inputs as `exampleInputs` (`Level::exampleInputs` in C++). UIs find those inputs in the existing rows to show useful examples without duplicating evaluation logic. Memory traces start with illustrative capture/hold operations before exercising the full range.
 
 ## One evaluator
 
@@ -91,27 +98,61 @@ Limits are 512 visible nodes, 4096 wires, 32,768 expanded primitives, and 32 lev
 
 An off transistor produces high impedance. A Junction lets high impedance yield to an active driver, preserves matching drivers, and reports conflict for opposing known drivers. A pull-down resistor converts high impedance to zero. It does not convert unknown to zero. Input values must fit their one-bit or four-bit width.
 
+The teaching blocks `GATE` (active-high controlled switch) and `CLOSED_GATE` (active-low switch) explicitly default an **unwired EN to 0**. The browser marks its missing connection `?` and labels the default. The default is attached to the composite's EN input alias during expansion, so a present wire carrying unknown stays unknown. Other missing inputs, including primitive nMOS/pMOS gates, retain the ordinary unknown behavior. A closed contact passes D, including 0; an open contact produces 0 through the internal pull-down. The contact and output therefore need not be high together.
+
+The catalog exposes `defaultContact` for those teaching switches, calculated by simulating an isolated block with the same engine. Drag previews and newly placed unwired switches use it immediately, before a worker reply arrives. Connected controls continue to use live simulation results. This keeps the initial illustration consistent without duplicating switch behavior in JavaScript.
+
 The model deliberately does not solve bidirectional transistor networks, analog voltages, physical timing, or metastability. `Dff` represents a shared ideal clock event. These implementation details are optional material. The introductory journey only exposes binary values and logical switches.
 
-`Result.contacts` maps a visible node ID to the contact state when the expanded block contains exactly one transistor: 1 is connected, 0 is open, and -1 means an unknown control. The same primitive evaluation sets the contact and the signal; there is no second gate evaluator for the illustration. A connected switch can carry 0. Components with multiple transistors have no single contact state. The browser currently uses this data to draw the early normal and reverse switch bridges.
+`Result.contacts` maps a visible node ID to the contact state when the expanded block contains exactly one transistor: 1 is connected, 0 is open, and -1 means an unknown control. The same primitive evaluation sets the contact and the signal; there is no second gate evaluator for the illustration. A connected switch can carry 0. Components with multiple transistors have no single contact state. The browser currently uses this data to draw the early active-high and active-low switch contacts.
 
 ## C ABI
 
-The public header has no C++ types. Link the shared library and use:
+The public header, `signal/bridge.h`, has no C++ types. The exports now use the
+`circuit_*` prefix, matching CircuIT Lab. Both bundled adapters use these names;
+external consumers using the earlier prefix must update their calls and rebuild
+against the matching library. Function signatures and JSON formats are unchanged.
 
-1. `sg_create()` to allocate an opaque circuit handle.
-2. `sg_node(handle, id, "NAND", width)` and `sg_wire(...)` to build it.
-3. Optional `sg_state(handle, key, value)` calls to supply previous memory bits.
-4. `sg_simulate(handle, input_array, count, tick)` or `sg_check(handle, lesson_id)`.
-5. `sg_destroy(handle)` exactly once.
+Link the shared library and use:
+
+1. `circuit_create()` to allocate an opaque circuit handle.
+2. `circuit_node(handle, id, "NAND", width)` and `circuit_wire(...)` to build it.
+3. Optional `circuit_state(handle, key, value)` calls to supply previous memory bits.
+4. `circuit_simulate(handle, input_array, count, tick)` or `circuit_check(handle, lesson_id)`.
+5. `circuit_destroy(handle)` exactly once.
 
 Builder functions return 1 on success, 0 on failure. A builder error is retained and reported by the subsequent simulation/check call. No C++ exception crosses the C ABI. A handle is owned by one caller; concurrent callers use distinct handles.
 
-`sg_catalog()` and `sg_reference(id)` expose the same metadata and reference circuits to non-C++ hosts. String-returning functions return UTF-8 JSON in thread-local storage, valid until the next string-returning call on that thread. Copy a returned string before another call. The caller must not free that string.
+`circuit_catalog()` and `circuit_reference(id)` expose the same metadata and reference circuits to non-C++ hosts. String-returning functions return UTF-8 JSON in thread-local storage, valid until the next string-returning call on that thread. Copy a returned string before another call. The caller must not free that string.
 
 State is explicit: copy the `state` object returned from simulation into the next request. A simulation does not silently mutate the handle's saved state. Passing an empty state initializes every clocked cell to zero. This makes deterministic replay and independent clients straightforward.
 
-## HTTP adapter
+## WebAssembly and worker API
+
+The default web application compiles the same three C++ source files with Emscripten. CMake produces a native shared library normally, or an ES module plus `engine.wasm` when configured with `emcmake`. There is no alternate JavaScript evaluator. The build enables caught C++ exceptions, exports the `circuit_*` C ABI, omits a virtual filesystem, and allows memory growth up to 256 MiB. It does not use pthreads or shared memory, so cross-origin isolation headers are unnecessary.
+
+Run `python3 scripts/build_app.py` to assemble `dist/app`. It uses the installed Emscripten SDK, or the pinned `emscripten/emsdk:4.0.15` Docker image. Native and Docker compiler caches have separate build directories. Generated files stay outside the source tree. The assembler adds a complete asset list and a content-derived version to the service worker.
+
+`src/ui/engine/client.mjs` exports `engine.request(method, data)`, returning a Promise:
+
+| Method | Data | Result |
+| --- | --- | --- |
+| `catalog` | None | Components, chapters, lessons, and expectations |
+| `reference` | `{level}` | Ordinary reference circuit |
+| `simulate` | `{circuit, inputs, state?, tick?}` | Outputs, signals, contacts, and explicit memory |
+| `check` | `{circuit, level}` | Full lesson results |
+
+The client starts one module worker lazily. Structured cloning snapshots each submitted request. The worker calls the C ABI synchronously, so requests execute in arrival order; the editor additionally preserves click-time input values and ordered memory updates. Request IDs associate replies with their callers. An engine diagnostic remains a result with an `error` field. Transport/conversion failures reject the Promise. A crash or 30-second timeout terminates the worker and rejects all pending requests; the next request can create a fresh worker. Pending circuit state remains in the editor.
+
+The bindings check transport types before C integer conversion, allocate at most 32 input integers, and release both allocations and circuit handles in `finally`. Circuit structure and behavior remain C++ responsibilities. Native and WebAssembly JSON results share the same C++ serializer.
+
+The browser never sends circuits to an HTTP simulation endpoint. The same static bundle can run in a browser or a packaged WebView. Assets use relative URLs, including worker and WebAssembly imports, so deployment under a repository path works. See [platform integration](PLATFORMS.md) for shell boundaries and [deployment](DEPLOYMENT.md) for caching and required MIME/CSP settings.
+
+`tests/test_wasm.py` compares the native and WebAssembly catalogs, references, checks, and every simulation row, including internal signals, switch contacts, and explicit memory. `tests/engine-client.mjs` tests request association, snapshots, timeouts, worker failure recovery, and cloning failures. `tests/wasm-browser.mjs` starts a new page and worker after stopping its server, then checks every lesson offline.
+
+## Optional HTTP adapter
+
+This service remains available for native integrations and tests. It is not involved in normal web or packaged-app play.
 
 | Endpoint | Request | Response |
 | --- | --- | --- |
@@ -150,9 +191,9 @@ The local launcher binds to loopback. Production runs the same WSGI application 
 
 ## Extending the curriculum
 
-1. Add a component kind and its metadata in `catalog.cpp` / `engine.hpp`.
+1. Add a component kind and its metadata in `catalog.cpp` / `engine.h`.
 2. Write its `recipe` using existing components. A recipe uses the same graph representation as a player's circuit.
-3. Add a behavioral specification to `test_vectors`. For combinational lessons, the generator enumerates every input combination automatically. For sequential lessons, write a deterministic trace that exercises capture, hold, reset, and control priorities.
+3. Add a behavioral specification to `testVectors`. For combinational lessons, the generator enumerates every input combination automatically. For sequential lessons, write a deterministic trace that exercises capture, hold, reset, and control priorities.
 4. Add the lesson's title, explanation, goal, and three hints using the catalog's `add` helper.
 5. Run the native suite. It automatically checks every registered reference lesson.
 
@@ -162,7 +203,7 @@ The browser discovers parts, labels, pin widths, allowed tools, and lessons from
 
 The frontend retains SVG node and wire elements by identity. Signal updates change classes and text when needed. One frame scheduler coalesces pointer updates for block dragging, wire previews, panning, and zooming. Camera movement transforms the scene and never routes wires. While a block moves, routes use the same complete obstacle map as on release. When all blocks move together, the renderer translates the scene and flow layer during the drag, reusing every route; release commits the new coordinates. This also lets unrelated wires shorten when an obstacle moves away. Only changed paths update their SVG and flow geometry. The pending wire uses a short preview path. Geometry changes do not restart simulation or memory. Newer input-display requests supersede queued older display requests, while clock steps remain ordered. Each request snapshots its inputs at the click; queued clock steps obtain memory from the preceding completed step. An earlier display response cannot unlock a pending clock button, and stale failures cannot overwrite the status of another workspace.
 
-All blocks use a 144 × 144 world-space footprint, displayed at 0.9 scale at normal zoom, with pins spaced 24 units apart on a 12-unit grid. Output bulbs and LED arrays receive at their bottom center; other inputs face left and outputs face right. Positions stay continuous during dragging and snap on release. Pin attraction uses screen-space distances, so it stays usable at different zoom levels. The router first minimizes orthogonal path length subject to outward pin leads and block clearance, then minimizes bends on equal-length routes. The board enables an optional separation pass: wires are routed in stable endpoint order, with short local lane alternatives penalized for sharing a run with a different source signal. Wires from the same sending pin may share a trunk. This pass reuses the route validator and never changes circuit connectivity or expands the A* search grid. Clearance is eight units, reduced in narrow gaps; pin leads are up to 24 units. Simple candidates can prove the Manhattan lower bound. Otherwise A* searches lanes at obstacle boundaries, with visibility checks shared across wires. Equal choices are deterministic. A covered pin has no obstacle-free route, so overlapping parts temporarily use a continuous route until separated. The wire, crossing underlay, hit target, tracing overlay and moving markers share the same route points. A background-colored underlay makes crossings visibly pass over each other. Hover, keyboard focus, or single-wire selection highlights both endpoint pins and names the connection. The highlight uses a separate non-interactive overlay so keyboard focus and DOM identity remain stable. Nearby parallel wires are picked by geometric distance to the actual segments. A preview uses the complete route when snapped to a destination. Dragging a connected receiving pin reuses that preview with the original source fixed. The original wire is hidden, and its flow is suppressed, until drop. The graph and memory remain intact during the gesture; a valid drop replaces the wire through the usual connection operation as one undoable edit. Cancellation restores the original drawing without simulation or persistence changes. Tidy circuit and worked examples share `web/circuit-layout.mjs`. It groups strongly connected components, layers their acyclic dependencies, then uses neighbour ordering to reduce crossings. There is no arbitrary depth cap. The layout is deterministic, fits the save-coordinate bounds, and preserves all non-position data. Undo/redo entries distinguish geometry edits so they preserve current inputs, signals, and clocked memory. `tests/wires.mjs` compares varied routes with an independent small-grid breadth-first search.
+All blocks use a 144 × 144 world-space footprint, displayed at 0.9 scale at normal zoom, with pins spaced 24 units apart on a 12-unit grid. Output bulbs and LED arrays receive at their bottom center; other inputs face left and outputs face right. Positions stay continuous during dragging and snap on release. Pin attraction uses screen-space distances, so it stays usable at different zoom levels. The router first minimizes orthogonal path length subject to outward pin leads and block clearance, then minimizes bends on equal-length routes. The board enables an optional separation pass: wires are routed in stable endpoint order, with short local lane alternatives penalized for sharing a run with a different source signal. Wires from the same sending pin may share a trunk. This pass reuses the route validator and never changes circuit connectivity or expands the A* search grid. Clearance is eight units, reduced in narrow gaps; pin leads are up to 24 units. Simple candidates can prove the Manhattan lower bound. Otherwise A* searches lanes at obstacle boundaries, with visibility checks shared across wires. Equal choices are deterministic. A covered pin has no obstacle-free route, so overlapping parts temporarily use a continuous route until separated. The wire, crossing underlay, hit target, tracing overlay and moving markers share the same route points. A background-colored underlay makes crossings visibly pass over each other. Hover, keyboard focus, or single-wire selection highlights both endpoint pins and names the connection. The highlight uses a separate non-interactive overlay so keyboard focus and DOM identity remain stable. Nearby parallel wires are picked by geometric distance to the actual segments. A preview uses the complete route when snapped to a destination. Dragging a connected receiving pin reuses that preview with the original source fixed. The original wire is hidden, and its flow is suppressed, until drop. The graph and memory remain intact during the gesture; a valid drop replaces the wire through the usual connection operation as one undoable edit. Cancellation restores the original drawing without simulation or persistence changes. Tidy circuit and worked examples share `src/ui/circuit-layout.mjs`. It groups strongly connected components, layers their acyclic dependencies, then uses neighbour ordering to reduce crossings. There is no arbitrary depth cap. The layout is deterministic, fits the save-coordinate bounds, and preserves all non-position data. Undo/redo entries distinguish geometry edits so they preserve current inputs, signals, and clocked memory. `tests/wires.mjs` compares varied routes with an independent small-grid breadth-first search.
 
 `FlowLayer` creates at most three small dots per visible on-wire. Cumulative segment lengths become transform keyframes with linear timing, run by the browser's Web Animations API. A stationary circuit has no JavaScript frame loop. The layer cancels dots for zero, unknown, disconnected, conflicting, or offscreen routes, and pauses for reduced motion or a hidden workbench. Camera changes transform the marker layer along with the diagram. The dotted board background is a viewport-sized CSS texture, avoiding the old large SVG background rectangle. Zooming may still require vector rasterization by the browser.
 
@@ -170,7 +211,7 @@ Selection uses sets of node IDs and stable wire endpoint keys. A desktop marquee
 
 `tests/performance.mjs` profiles individual/group dragging, marquee selection, panning, zooming, and wiring on representative circuits, including main-thread time and unwanted routing/simulation work. `tests/rendering.mjs` observes actual paint events and signal-dot positions, with pause and offscreen checks. A 60 Hz animation callback alone is not evidence of 60 smoothly presented frames.
 
-The UI has a left symbol tray, a right instruction card, and a distinct Free play mode button and color scheme. The chapter path is hidden by default; the journey drawer opens on demand and has a saved option to keep the chapter strip visible. One Hide task / Show task button folds the instructions away while keeping Check and experiment navigation accessible. Input names are centered horizontally over their value boxes and vertically in the gap above them; output names stay above their values. Fit uses the rendered node bounds to include the complete drawing. Gate names and pin labels use larger type. Free play remembers the last journey lesson independently of the active workspace. Normal and reverse switches always display their internal contacts; there is no visibility toggle or preference.
+The UI has a left symbol tray, a right instruction card, and a distinct Free play mode button and color scheme. The chapter path is hidden by default; the journey drawer opens on demand and has a saved option to keep the chapter strip visible. One Hide task / Show task button folds the instructions away while keeping Check and experiment navigation accessible. Input names are centered horizontally over their value boxes and vertically in the gap above them; output names stay above their values. Fit uses the rendered node bounds to include the complete drawing. Gate names and pin labels use larger type. Free play remembers the last journey lesson independently of the active workspace. Active-high and active-low switches always display their internal contacts; there is no visibility toggle or preference.
 
 Tasks show the goal, target component name from the C++ catalog, expectations, and optional hints. Playing instructions live in the handbook, which opens on first launch at How to play and can be reopened without resetting work. The existing welcome storage flag is retained, so returning players are not interrupted again. Early experiments highlight useful pins and the Check button without an instruction overlay. The header handbook button and ? reopen the book; no redundant task-panel link remains. Only `check` completes an experiment. Page turns animate the outgoing and incoming leaves with native transform animations. They run only during a turn, cancel when the book closes, and are skipped for reduced motion.
 

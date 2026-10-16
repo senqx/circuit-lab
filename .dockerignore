@@ -3,12 +3,14 @@
 !CMakeLists.txt
 !requirements.txt
 !LICENSE
-!engine/**
+!src/engine/**
 !examples/**
 !tests/engine_tests.cpp
-!server/**
-!web/**
+!src/server/**
+!src/ui/**
+!src/http_headers.py
 !deploy/**
+!scripts/build_app.py
 **/__pycache__
 **/*.pyc
 **/.DS_Store

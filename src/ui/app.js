@@ -6,6 +6,8 @@ import { handbookSpreads } from './handbook.mjs';
 import { BLOCK_SIZE, GRID, MAX_COORDINATE, onGrid, portPoint, snapPosition } from './board-geometry.mjs';
 import { layout as arrangeCircuit } from './circuit-layout.mjs';
 import { wireKey, nodeSelection, wireSelection, selectionBox, objectsInBox } from './selection.mjs';
+import { engine } from './engine/client.mjs';
+import { platform } from './platform.mjs';
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clone = (x) => structuredClone(x);
@@ -57,9 +59,9 @@ const terminal=(n)=>n.kind==='INPUT'||n.kind==='OUTPUT';
 const isLamp=(n)=>n.kind==='OUTPUT'&&n.width===1;
 const sortedInputs=()=>graph.nodes.filter(n=>n.kind==='INPUT').sort((a,b)=>a.id-b.id);
 const sortedOutputs=()=>graph.nodes.filter(n=>n.kind==='OUTPUT').sort((a,b)=>a.id-b.id);
-function readStorage(key, fallback) { try { return JSON.parse(localStorage.getItem(`${STORAGE}:${key}`))??fallback; } catch { return fallback; } }
+function readStorage(key, fallback) { try { return JSON.parse(platform.readText(`${STORAGE}:${key}`))??fallback; } catch { return fallback; } }
 function writeStorage(key,value) {
-  try { localStorage.setItem(`${STORAGE}:${key}`,JSON.stringify(value)); $('saved-label').textContent='Saved on this device'; }
+  try { platform.writeText(`${STORAGE}:${key}`,JSON.stringify(value)); $('saved-label').textContent='Saved on this device'; }
   catch { $('saved-label').textContent='Save unavailable · export to keep'; }
 }
 function persist() {
@@ -77,12 +79,6 @@ function toast(message,type='') {
   clearTimeout(toast.timer); toast.timer=setTimeout(()=>$('toast').hidden=true,4500);
 }
 function status(message,error=false) { $('status-message').innerHTML=`<span class="status-dot" style="${error?'background:#cf825b':''}"></span>${esc(message)}`; }
-async function api(path,body) {
-  const r=await fetch(`/api/${path}`,{signal:AbortSignal.timeout(30000),...(body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});
-  const data=await r.json();
-  if(!r.ok) throw new Error(data.error||'The workbench could not reach the engine.');
-  return data;
-}
 function snap(geometryOnly=false) { return {graph:clone(graph),inputs:[...inputs],practice,geometryOnly}; }
 function remember(geometryOnly=false) { history.push(snap(geometryOnly)); if(history.length>80) history.shift(); future=[]; }
 function restore(s) { graph=clone(s.graph); if(!s.geometryOnly){inputs=[...s.inputs];practice=s.practice;} selected.clear(); pending=null; changed(!s.geometryOnly); renderLearn(); }
@@ -136,6 +132,11 @@ function bulbDrawing() {
     <path class="bulb-base" d="M38 64h26v14H38Zm5 14h16l-4 7h-8Z"/>
     <path class="bulb-thread" d="m38 67 26 3m-26 2 26 3"/>`;
 }
+function switchContact(n) {
+  return contacts[n.id]??(incoming.has(`${n.id}:1`)?-1:parts[n.kind].defaultContact??-1);
+}
+const contactPath=contact=>contact===1?'M42 60H94':contact===0?'M42 60 80 40':'M42 60 78 49';
+const contactCaption=(contact,data)=>contact===1?`Closed · passes ${valueText(data)}`:contact===0?'Open gap · Q=0':'Contact unknown';
 function drawNode(original) {
   const n={...original,x:0,y:0}, {w,h}=size(n);
   const footprint=`<rect class="node-footprint" width="144" height="144" rx="6"/>`;
@@ -163,15 +164,18 @@ function drawNode(original) {
       <text class="terminal-title" x="60" y="143" text-anchor="middle">${n.width===4?'4-BIT INPUT':'INPUT'}</text>${pin(n,0,true)}</g>`;
   }
   const spec=parts[n.kind],gate=['GATE','CLOSED_GATE'].includes(n.kind);
-  if(gate)return `<g class="node switch-node" data-node="${n.id}" transform="translate(${original.x} ${original.y})" tabindex="0" role="group" aria-label="${esc(spec.name)}. EN enables the data path from D to Q.">
+  if(gate) {
+    const contact=switchContact(n);
+    return `<g class="node switch-node" data-node="${n.id}" data-contact="${contact}" transform="translate(${original.x} ${original.y})" tabindex="0" role="group" aria-label="${esc(spec.name)}. EN enables the data path from D to Q.">
     ${footprint}<rect class="node-body" width="${w}" height="${h}" rx="5"/>
     <text class="switch-rule" x="72" y="20" text-anchor="middle">${n.kind==='GATE'?'EN=1 CONNECTS':'EN=0 CONNECTS'}</text>
     <g class="switch-inside"><path class="inside-source" d="M0 60H42"/><path class="inside-output" d="M94 60H114V72H144"/>
       <path class="inside-control" d="M0 84H64V72m-3 4 3-4 3 4"/>
-      <path class="inside-contact" d="M42 60 80 40"/><circle class="contact-dot" cx="42" cy="60" r="3"/><circle class="contact-dot" cx="94" cy="60" r="3"/>
-      <text class="node-pin-label" x="8" y="52">D</text><text class="node-pin-label" x="8" y="99">EN</text><text class="contact-caption" x="78" y="108" text-anchor="middle">Connect EN</text>
+      <path class="inside-contact" d="${contactPath(contact)}"/><circle class="contact-dot" cx="42" cy="60" r="3"/><circle class="contact-dot" cx="94" cy="60" r="3"/>
+      <text class="node-pin-label" x="8" y="52">D</text><text class="node-pin-label" x="8" y="99">EN</text><text class="contact-caption" x="72" y="106" text-anchor="middle">${contactCaption(contact,pinValue(n,0,false))}</text><text class="enable-caption" x="72" y="119" text-anchor="middle">${incoming.has(`${n.id}:1`)?'Reading EN…':'EN ? · defaults to 0'}</text>
     </g>
     <text class="node-subtitle" x="72" y="131" text-anchor="middle">${esc(spec.name)}</text>${spec.inputs.map((_,i)=>pin(n,i,false)).join('')}${pin(n,0,true)}</g>`;
+  }
   const shape=gateDrawing(n.kind);
   if(shape)return `<g class="node logic-gate" data-node="${n.id}" transform="translate(${original.x} ${original.y})" tabindex="0" role="group" aria-label="${esc(spec.name)}. Drag or use arrow keys to move.">
     ${footprint}${shape}<text class="node-subtitle" x="72" y="136" text-anchor="middle">${esc(spec.name)}</text>
@@ -189,6 +193,7 @@ function drawNode(original) {
     ${spec.inputs.map((_,i)=>pin(n,i,false)).join('')}${spec.outputs.map((_,i)=>pin(n,i,true)).join('')}</g>`;
 }
 function setClass(el,value) {if(el.getAttribute('class')!==value)el.setAttribute('class',value);}
+function setText(el,value) {if(el.textContent!==value)el.textContent=value;}
 function wireDescription(w) {
   const from=nodeMap.get(w.from),to=nodeMap.get(w.to);
   const name=n=>terminal(n)?terminalName(n):parts[n.kind].name;
@@ -279,21 +284,27 @@ function updateSignals() {
     const input=n.kind==='INPUT',v=input?inputValues.get(n.id):signals[n.id]?.[0];
     el.dataset.value=valueText(v);
     if(el.classList.contains('switch-node')) {
-      const contact=contacts[n.id]??-1;
+      const contact=switchContact(n);
       if(el.dataset.contact!==String(contact)) {
         el.dataset.contact=contact;
-        el.querySelector('.inside-contact').setAttribute('d',contact===1?'M42 60H94':'M42 60 80 40');
-        el.querySelector('.contact-caption').textContent=contact===1?'Connected':contact===0?'Gap · blocked':'Connect EN';
+        el.querySelector('.inside-contact').setAttribute('d',contactPath(contact));
       }
-      setClass(el.querySelector('.inside-source'),`inside-source ${signalClass(pinValue(n,0,false))}`);
+      const data=pinValue(n,0,false),enable=pinValue(n,1,false),wired=incoming.has(`${n.id}:1`);
+      setText(el.querySelector('.contact-caption'),contactCaption(contact,data));
+      setText(el.querySelector('.enable-caption'),wired?`EN=${valueText(enable)}`:'EN ? · defaults to 0');
+      const label=`${parts[n.kind].name}. ${wired?`EN=${valueText(enable)}`:'EN is unwired and defaults to 0'}. ${contact===1?'Closed contact':contact===0?'Open contact':'Unknown contact'}. D=${valueText(data)}, Q=${valueText(v)}.`;
+      if(el.getAttribute('aria-label')!==label)el.setAttribute('aria-label',label);
+      setClass(el.querySelector('.inside-source'),`inside-source ${signalClass(data)}`);
+      setClass(el.querySelector('.inside-contact'),`inside-contact ${contact===1?signalClass(data):'unknown'}`);
+      setClass(el.querySelector('.inside-control'),`inside-control ${signalClass(enable)}`);
       setClass(el.querySelector('.inside-output'),`inside-output ${signalClass(v)}`);
     }
     if(terminal(n)) {
       const value=el.querySelector('.terminal-value'),caption=el.querySelector('.input-caption');
-      const text=valueText(v);if(value.textContent!==text)value.textContent=text;
+      const text=valueText(v);setText(value,text);
       setClass(value,`terminal-value ${isLamp(n)?'bulb-value ':''}${signalClass(v)}`);
       const captionText=n.width===4&&v>=0?input?Number(v).toString(2).padStart(4,'0'):'DECIMAL':input?'click to change':v===undefined||v<0?isLamp(n)?'needs wire':'not connected':v===1?'on':'off';
-      if(caption.textContent!==captionText)caption.textContent=captionText;
+      setText(caption,captionText);
       for(const bit of el.querySelectorAll('[data-bit]')){const text=v>=0?String((v>>Number(bit.dataset.bit))&1):valueText(v);bit.dataset.value=text;bit.querySelector('.led-value').textContent=text;}
       if(isLamp(n))el.setAttribute('aria-label',`Light bulb ${terminalName(n)}, ${captionText}, value ${text}`);
       el.querySelector('[data-toggle]')?.setAttribute('aria-label',`Change ${terminalName(n)}, currently ${valueText(v)}`);
@@ -562,7 +573,7 @@ function renderSidebar() {
     : `<button data-previous ${lessonIndex()===0?'disabled':''} title="Reopen the previous experiment with your saved circuit">← Previous</button><span>${lessonNumber()} / ${catalog.levels.length}</span><button data-forward>${progress.completed[current.id]?(!nextLevel()?'Free play mode':'Next'):'Skip'} →</button>`;
   $('lesson-list').innerHTML=catalog.chapters.map((chapter,index)=>{
     const lessons=catalog.levels.filter(l=>l.chapter===index),allDone=lessons.every(l=>progress.completed[l.id]);
-    return `<section class="chapter"><button class="chapter-toggle" data-chapter="${index}" aria-expanded="${openChapters.has(index)}"><span class="chapter-number">${String(index+1).padStart(2,'0')}</span>${esc(chapter.name)}<span class="${allDone?'chapter-check':'chevron'}">${allDone?'✓':openChapters.has(index)?'−':'+'}</span></button><div ${openChapters.has(index)?'':'hidden'}><p class="chapter-goal">${esc(chapter.goal)}</p>${lessons.map(l=>`<button class="lesson-link ${progress.completed[l.id]?'done':''} ${mode==='journey'&&current.id===l.id?'active':''}" data-level="${l.id}" ${mode==='journey'&&current.id===l.id?'aria-current="step"':''}><span class="lesson-bullet">${progress.completed[l.id]?'✓':String(lessonNumber(l.id)).padStart(2,'0')}</span><span>${esc(l.title)}</span>${mode==='journey'&&current.id===l.id?'<span class="current-arrow">›</span>':''}</button>`).join('')}</div></section>`;
+    return `<section class="chapter"><button class="chapter-toggle" data-chapter="${index}" aria-expanded="${openChapters.has(index)}"><span class="chapter-number">${String(index+1).padStart(2,'0')}</span>${esc(chapter.name)}<span class="${allDone?'chapter-check':'chevron'}">${allDone?'✓':openChapters.has(index)?'−':'+'}</span></button><div ${openChapters.has(index)?'':'hidden'}><p class="chapter-goal">${esc(chapter.goal)}</p>${lessons.map(l=>`<button class="lesson-link ${progress.completed[l.id]?'done':''} ${mode==='journey'&&current.id===l.id?'active':''}" data-level="${l.id}" ${mode==='journey'&&current.id===l.id?'aria-current="step"':''}><span class="lesson-bullet">${progress.completed[l.id]?(l.nandChallenge&&bestNands(l.id)!==null&&bestNands(l.id)<=l.nandChallenge.target?'★':'✓'):String(lessonNumber(l.id)).padStart(2,'0')}</span><span>${esc(l.title)}</span>${mode==='journey'&&current.id===l.id?'<span class="current-arrow">›</span>':''}</button>`).join('')}</div></section>`;
   }).join('');
 }
 function renderLevel() {
@@ -595,11 +606,26 @@ function renderLearn() {
     return;
   }
   $('learn-panel').innerHTML=`<span class="task-section-label">YOUR MISSION</span><p class="mission-rule">${esc(current.goal)}</p><p class="task-build">You’re building: <strong>${esc(parts[current.target].name)}</strong>.</p>${expectedMarkup()}
-    ${progress.completed[current.id]?`<div class="lesson-complete-badge">✓ You've completed this experiment.</div><p class="revisit-note">Your circuit is saved. Keep exploring here, or use Next below.</p>`:''}
+    ${progress.completed[current.id]?`<div class="lesson-complete-badge">✓ You've completed this experiment.</div><p class="revisit-note">Your circuit is saved. Keep exploring here, or use Next below.</p>`:''}${challengeMarkup()}
     ${practice?'<div class="preview-banner">You are exploring a worked example. Try it, then build your own to complete the experiment. <button id="start-fresh" class="text-button">Start my own circuit →</button></div>':''}
     <div class="hint-area"><div class="hint-top"><div class="section-label">${icon('bulb')}Stuck? Take a hint.</div><span>${hints} / ${current.hints.length}</span></div>${current.hints.slice(0,hints).map((h,i)=>`<div class="hint"><strong>${i+1}.</strong> ${esc(h)}</div>`).join('')}<button id="hint-button" class="button" ${hints>=current.hints.length?'disabled':''}>${hints?'Give me the next hint':'Give me a hint'} ${icon('arrow')}</button><button id="example-button" class="example-button">See a working example</button></div>
     <div id="node-detail"></div>`;
   renderNodeDetail();renderGuidance();
+}
+function bestNands(id=current.id) {
+  const best=progress.completed[id]?.bestNands;
+  return Number.isInteger(best)&&best>=0&&best<=512?best:null;
+}
+function challengeMarkup(result=null) {
+  const goal=current.nandChallenge;if(!goal)return '';
+  const score=result?.nandChallenge,best=bestNands();
+  const won=result?!!score?.achieved:best!==null&&best<=goal.target;
+  const checked=score&&result.passed
+    ? score.achieved?`${practice?'This example meets':'This circuit meets'} the target: ${score.used} NAND ${score.used===1?'gate':'gates'}.`
+      : score.otherParts?`Your circuit works. This check used ${score.used} NAND gates and ${score.otherParts} other ${score.otherParts===1?'block':'blocks'}. Rebuild with NANDs only to earn the challenge.`
+      : `Your circuit works with ${score.used} NAND gates. Can you share a result or remove an extra gate?`
+    : 'Make the circuit work first. Passing the expected behavior unlocks Next; this challenge is optional.';
+  return `<section class="nand-challenge ${won?'achieved':''}" aria-label="Optional NAND challenge"><h3>${won?'★':'◇'} ${won&&!practice?'NAND target reached':'Optional NAND challenge'}</h3><p>Use <strong>${goal.target} two-input NAND ${goal.target===1?'gate':'gates'} or fewer</strong>.</p><p class="challenge-feedback">${esc(checked)}</p>${best!==null?`<p class="challenge-best">Your best checked NAND-only circuit: <strong>${best}</strong>.</p>`:''}<details><summary>Counting rules & a hint</summary><p>Every block on the board must be a NAND, except the lesson’s inputs and outputs. All NANDs count, including unused ones. Wires do not count.</p><p>${esc(goal.hint)}</p></details><button class="text-button" data-design-notes>From truth tables to simpler circuits →</button></section>`;
 }
 function renderNodeDetail() {
   const el=$('node-detail'); if(!el)return;
@@ -625,7 +651,7 @@ function renderTest() {
   testPage=Math.min(testPage,Math.max(0,pages-1));
   const page=rows.slice(testPage*TEST_PAGE_SIZE,(testPage+1)*TEST_PAGE_SIZE);
   const banner=result?`<div class="test-badge ${result.passed?'success':'failure'}">${result.passed?`✓ ${result.correct} of ${result.total} checks passed.`:esc(result.error||'Keep experimenting.')} ${!result.passed&&result.total?`(${result.correct}/${result.total} passed)`:''}</div>`:'';
-  $('test-panel').innerHTML=`<div class="test-intro"><h2>${current.sequential?'Expected sequence':'Expected results'}</h2><p>${current.sequential?'Each row continues from the previous memory state. ↦ = clock step; – = no clock.':'Compare your circuit with these expected outputs. Click a row to try its input combination.'}</p></div>${banner}${tableMarkup(page,!!result?.rows?.length)}${pages>1?`<nav class="table-paging" aria-label="Test cases"><button data-test-page="${testPage-1}" ${testPage===0?'disabled':''}>← Previous rows</button><span>${testPage+1} / ${pages}</span><button data-test-page="${testPage+1}" ${testPage===pages-1?'disabled':''}>Next rows →</button></nav>`:''}<p class="test-note">${current.testCount} ${current.sequential?'steps in order · memory begins at 0':'input combinations checked'}.</p><p class="test-note">? = unconnected · Z = disconnected · ! = conflicting drivers</p>`;
+  $('test-panel').innerHTML=`<div class="test-intro"><h2>${current.sequential?'Expected sequence':'Expected results'}</h2><p>${current.sequential?'Each row continues from the previous memory state. ↦ = clock step; – = no clock.':'Compare your circuit with these expected outputs. Click a row to try its input combination.'}</p></div>${banner}${result?challengeMarkup(result):''}${tableMarkup(page,!!result?.rows?.length)}${pages>1?`<nav class="table-paging" aria-label="Test cases"><button data-test-page="${testPage-1}" ${testPage===0?'disabled':''}>← Previous rows</button><span>${testPage+1} / ${pages}</span><button data-test-page="${testPage+1}" ${testPage===pages-1?'disabled':''}>Next rows →</button></nav>`:''}<p class="test-note">${current.testCount} ${current.sequential?'steps in order · memory begins at 0':'input combinations checked'}.</p><p class="test-note">? = unknown or unwired · Z = high impedance · ! = conflicting drivers</p>`;
 }
 function tryTableRow(event) {
   const el=event.target.closest('[data-inputs]');if(!el)return;
@@ -648,7 +674,7 @@ function runSimulation(tick=false) {
   queue=queue.catch(()=>{}).then(async()=>{
     if(rev!==revision||(!tick&&ticket!==simTicket))return;
     // Inputs belong to the click; memory comes from the preceding clock step.
-    const data=await api('simulate',{circuit:graph,inputs:values,state:memory,tick});
+    const data=await engine.request('simulate',{circuit:graph,inputs:values,state:memory,tick});
     if(rev!==revision)return;
     if(data.error){signals={};contacts={};updateSignals();status(data.error,true);if(tick)toast(data.error,'error');return;}
     // Preserve a completed clock step even if a newer display refresh was queued.
@@ -658,7 +684,7 @@ function runSimulation(tick=false) {
       else if(data.outputs.some(v=>v<0))status('Your circuit is growing. Connect the remaining pins to see a result.');
       else status(tick?`Clock step ${ticks}. Every memory cell captured its input together.`:'Signals are live. Flip an input to see what changes.');
     }
-  }).catch(e=>{if(rev===revision&&ticket===simTicket){status(e.message,true);toast('The engine could not be reached. Your circuit is still here; try again.','error');}}).finally(()=>{if(tick)$('tick-button').disabled=false;});
+  }).catch(e=>{if(rev===revision&&ticket===simTicket){status(e.message,true);toast('The engine could not finish. Your circuit is still here; try again.','error');}}).finally(()=>{if(tick)$('tick-button').disabled=false;});
   return queue;
 }
 function addPart(key,width=1,position=null) {
@@ -712,13 +738,15 @@ async function checkCircuit() {
   checking=true;$('check-button').disabled=true;$('check-button').innerHTML=icon('clock')+'Testing…';
   const rev=revision,id=current.id;
   try {
-    const r=await api('check',{circuit:graph,level:id});
+    const r=await engine.request('check',{circuit:graph,level:id});
     if(rev!==revision)return;
     lastResult=r;testPage=Math.max(0,Math.floor((r.rows||[]).findIndex(row=>!row.passed)/TEST_PAGE_SIZE));
     setTaskVisible(true);renderTest();renderGuidance();switchTab('test');
     if(r.passed) {
       if(practice){toast('The worked circuit passes every check. Start fresh when you’re ready to build it.','success');return;}
-      progress.completed[id]={parts:graph.nodes.filter(n=>!terminal(n)).length};save();renderSidebar();renderLearn();showCompletion(r);
+      const record={...progress.completed[id],parts:graph.nodes.filter(n=>!terminal(n)).length};
+      if(r.nandChallenge?.eligible)record.bestNands=Math.min(bestNands(id)??Infinity,r.nandChallenge.used);
+      progress.completed[id]=record;save();renderSidebar();renderLearn();renderTest();showCompletion(r);
     } else {toast(r.total?`${r.correct} of ${r.total} checks passed. Let’s find the missing piece.`:r.error,'error');status(r.error,true);}
   } catch(e){toast(e.message,'error');}
   finally{checking=false;$('check-button').disabled=false;$('check-button').innerHTML=icon(mode==='journey'?'play':'spark')+(mode==='journey'?'Check circuit':'Run circuit');}
@@ -747,7 +775,7 @@ function showSkip() {
 }
 function showCompletion(r) {
   const s=parts[current.target],next=nextLevel();
-  modal(`<div class="completion-icon">${icon(current.id===catalog.levels.length?'leaf':'check')}</div><span class="lesson-tag" style="margin-top:22px">${current.id===catalog.levels.length?'FROM A SPARK TO A COMPUTER':'ANOTHER DISCOVERY MADE'}</span><h2>${current.id===catalog.levels.length?'You built a computer.':'You made it work.'}</h2><p>${current.id===catalog.levels.length?'From sending your first message to a working instruction-driven processor. That whole journey is here, in your circuit. Keep exploring in free play.':`Your ${esc(s.name.toLowerCase())} works. Every ${current.sequential?'step in the test sequence':'input combination'} passed. Take a moment — you made this.`}</p><div class="completion-stats"><div><strong>${r.total}</strong><span>checks passed</span></div><div><strong>${graph.nodes.filter(n=>!terminal(n)).length}</strong><span>parts connected</span></div><div><strong>${Object.keys(progress.completed).length}/${catalog.levels.length}</strong><span>ideas discovered</span></div></div><div class="chip-unlock"><span class="chip-symbol">${esc(s.symbol)}</span><div><strong>Your new building block</strong><p>${esc(s.name)} is ready for bigger ideas.</p></div></div><div class="modal-actions"><button id="next-lesson" class="button primary">${next?`Next: ${esc(next.title)}`:'Explore free play'} ${icon('arrow')}</button><button id="stay-button" class="button">Review my circuit</button></div>`);
+  modal(`<div class="completion-icon">${icon(current.id===catalog.levels.length?'leaf':'check')}</div><span class="lesson-tag" style="margin-top:22px">${current.id===catalog.levels.length?'FROM A SPARK TO A COMPUTER':'ANOTHER DISCOVERY MADE'}</span><h2>${current.id===catalog.levels.length?'You built a computer.':'You made it work.'}</h2><p>${current.id===catalog.levels.length?'From sending your first message to a working instruction-driven processor. That whole journey is here, in your circuit. Keep exploring in free play.':`Your ${esc(s.name.toLowerCase())} works. Every ${current.sequential?'step in the test sequence':'input combination'} passed. Take a moment — you made this.`}</p><div class="completion-stats"><div><strong>${r.total}</strong><span>checks passed</span></div><div><strong>${graph.nodes.filter(n=>!terminal(n)).length}</strong><span>blocks on board</span></div><div><strong>${Object.keys(progress.completed).length}/${catalog.levels.length}</strong><span>ideas discovered</span></div></div>${challengeMarkup(r)}<div class="chip-unlock"><span class="chip-symbol">${esc(s.symbol)}</span><div><strong>Your new building block</strong><p>${esc(s.name)} is ready for bigger ideas.</p></div></div><div class="modal-actions"><button id="next-lesson" class="button primary">${next?`Next: ${esc(next.title)}`:'Explore free play'} ${icon('arrow')}</button><button id="stay-button" class="button">${r.nandChallenge&&!r.nandChallenge.achieved?'Try the NAND challenge':'Review my circuit'}</button></div>`);
   $('next-lesson').onclick=()=>{$('modal').close();loadLevel(next?next.id:'sandbox');};$('stay-button').onclick=()=>$('modal').close();
 }
 let guideSpread=0, guideTurning=false;
@@ -755,11 +783,16 @@ function showGuide(page=guideSpread) {
   guideSpread=typeof page==='number'?Math.max(0,Math.min(handbookSpreads.length-1,page)):guideSpread;
   const spread=handbookSpreads[guideSpread],totalPages=handbookSpreads.length*2;
   const turnArrow=`<svg viewBox="0 0 64 40" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 30C9 7 51 6 51 28m-10-7 10 9 9-11"/></svg>`;
-  modal(`<div class="book-index"><span>LAB HANDBOOK</span><strong>${spread.title}</strong></div>
+  modal(`<div class="book-index"><span>LAB HANDBOOK</span><strong>${spread.title}</strong><nav class="book-contents" aria-label="Handbook contents">${handbookSpreads.map((item,i)=>`<button data-guide-spread="${i}" ${i===guideSpread?'aria-current="page"':''} ${guideTurning?'disabled':''}>${item.title}</button>`).join('')}</nav></div>
     <div id="book-spread" class="book-spread">${spread.pages.map((page,i)=>`<article class="book-page"><span class="book-eyebrow">PAGE ${String(guideSpread*2+i+1).padStart(2,'0')} / ${totalPages}</span><h2>${page.title}</h2>${page.body}</article>`).join('')}</div>
     <div class="book-footer handbook-footer"><button id="guide-previous" class="page-turn previous" ${guideSpread===0||guideTurning?'disabled':''} aria-label="Previous pages: ${handbookSpreads[guideSpread-1]?.title||'beginning'}">${turnArrow}<span>${handbookSpreads[guideSpread-1]?.title||'First pages'}</span></button><div class="book-return"><span aria-live="polite">${guideSpread*2+1}–${guideSpread*2+2} / ${totalPages}</span><button id="close-guide" class="${readStorage('welcome',false)?'text-button':'button primary'}">${readStorage('welcome',false)?'Back to experiment':'Start building'}</button><button id="guide-home" class="text-button" ${guideSpread===0?'hidden':''}>How to play</button></div><button id="guide-next" class="page-turn next" ${guideSpread===handbookSpreads.length-1||guideTurning?'disabled':''} aria-label="Next pages: ${handbookSpreads[guideSpread+1]?.title||'end'}">${turnArrow}<span>${handbookSpreads[guideSpread+1]?.title||'Last pages'}</span></button></div>`, 'handbook');
   $('guide-previous').onclick=()=>turnGuide(-1);
   $('guide-next').onclick=()=>turnGuide(1);
+  document.querySelectorAll('[data-guide-spread]').forEach(button=>button.onclick=()=>{
+    if(guideTurning)return;
+    showGuide(Number(button.dataset.guideSpread));
+    document.querySelector('.book-contents [aria-current="page"]').focus({preventScroll:true});
+  });
   $('modal').scrollTop=0;
   $('close-guide').onclick=()=>$('modal').close();
   $('guide-home').onclick=()=>showGuide(0);
@@ -775,6 +808,7 @@ async function turnGuide(direction) {
   if(matchMedia('(prefers-reduced-motion: reduce)').matches){showGuide(next);focusArrow();return;}
   guideTurning=true;dialog.dataset.turning='true';
   $('guide-previous').disabled=true;$('guide-next').disabled=true;
+  document.querySelectorAll('[data-guide-spread]').forEach(button=>button.disabled=true);
   let animation;
   try {
     // Fold the outgoing leaf to the spine, then open its other side.
@@ -793,6 +827,7 @@ async function turnGuide(direction) {
     animation?.cancel();guideTurning=false;delete dialog.dataset.turning;
     if($('guide-previous'))$('guide-previous').disabled=guideSpread===0;
     if($('guide-next'))$('guide-next').disabled=guideSpread===handbookSpreads.length-1;
+    document.querySelectorAll('[data-guide-spread]').forEach(button=>button.disabled=false);
     focusArrow();
   }
 }
@@ -822,13 +857,13 @@ function showExample() {
   $('cancel-example').onclick=()=>$('modal').close();
   $('load-example').onclick=async()=>{
     const id=current.id,rev=revision;
-    try{const g=await api(`reference/${id}`);if(g.error)throw new Error(g.error);if(rev!==revision)return;remember();graph=layout(g);practice=true;selected.clear();pending=null;changed();renderLearn();fit();$('modal').close();toast('Follow a signal through the circuit. Undo returns to your design.');}catch(e){toast(e.message,'error');}
+    try{const g=await engine.request('reference',{level:id});if(g.error)throw new Error(g.error);if(rev!==revision)return;remember();graph=layout(g);practice=true;selected.clear();pending=null;changed();renderLearn();fit();$('modal').close();toast('Follow a signal through the circuit. Undo returns to your design.');}catch(e){toast(e.message,'error');}
   };
 }
-function exportCircuit() {
+async function exportCircuit() {
   const data={version:2,level:activeKey(),circuit:graph,inputs,practice};
-  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=url;a.download=`circuit-${activeKey()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('Circuit exported. A little idea to keep.');
+  try {if(await platform.exportFile(`circuit-${activeKey()}.json`,JSON.stringify(data,null,2)))toast('Circuit exported. A little idea to keep.');}
+  catch(e){toast(e.message||'This circuit could not be exported.','error');}
 }
 async function importCircuit(file) {
   if(!file)return;
@@ -846,6 +881,9 @@ async function importCircuit(file) {
 }
 
 function bindEvents() {
+  document.addEventListener('click',event=>{
+    if(event.target.closest('[data-design-notes]'))showGuide(handbookSpreads.findIndex(spread=>spread.id==='design'));
+  });
   const buttons={'undo-button':'undo','redo-button':'redo','arrange-button':'align','export-button':'download','import-button':'upload','clear-button':'trash','delete-button':'trash','fit-button':'fit','flow-button':'arrow'};
   for(const [id,name] of Object.entries(buttons))$(id).innerHTML=icon(name);
   document.querySelector('.modal-close').innerHTML=icon('close');
@@ -868,8 +906,7 @@ function bindEvents() {
   };
   $('check-button').onclick=checkCircuit;$('clear-button').onclick=clearBoard;
   $('delete-button').onclick=deleteSelected;
-  $('export-button').onclick=exportCircuit;$('import-button').onclick=()=>$('import-file').click();
-  $('import-file').onchange=e=>{importCircuit(e.target.files[0]);e.target.value='';};
+  $('export-button').onclick=exportCircuit;$('import-button').onclick=platform.bindFileImport(importCircuit);
   $('zoom-in').onclick=()=>zoom(1.2);$('zoom-out').onclick=()=>zoom(1/1.2);
   $('tick-button').onclick=()=>runSimulation(true);
   $('reset-clock').onclick=()=>{memory={};ticks=0;++revision;renderClock();runSimulation();toast('Memory reset to zero.');};
@@ -1073,7 +1110,7 @@ function toggleJourney(open) {
 function migrateProgress() {
   if(readStorage('progress',null))return;
   try {
-    const old=JSON.parse(localStorage.getItem('signal-garden-v1:progress')||'null');
+    const old=JSON.parse(platform.readText('signal-garden-v1:progress')||'null');
     if(!old)return;
     const completed={};
     for(const [id,value] of Object.entries(old.completed||{})){
@@ -1082,17 +1119,18 @@ function migrateProgress() {
     }
     writeStorage('progress',{completed});
     for(let id=5;id<=22;id++){
-      const legacy=JSON.parse(localStorage.getItem(`signal-garden-v1:circuit:${id}`)||'null');
+      const legacy=JSON.parse(platform.readText(`signal-garden-v1:circuit:${id}`)||'null');
       if(legacy){legacy.version=2;legacy.level=String(id+2);writeStorage(`circuit:${id+2}`,legacy);}
     }
-    const free=JSON.parse(localStorage.getItem('signal-garden-v1:circuit:sandbox')||'null');
+    const free=JSON.parse(platform.readText('signal-garden-v1:circuit:sandbox')||'null');
     if(free){free.version=2;writeStorage('circuit:sandbox',free);}
     // The old workspace remains intact, including the retired transistor lessons.
   } catch { /* A damaged old save must not prevent a new journey. */ }
 }
 async function boot() {
   try {
-    catalog=await api('catalog');if(catalog.error)throw new Error(catalog.error);
+    status('Opening your circuit lab…');
+    catalog=await engine.request('catalog');if(catalog.error)throw new Error(catalog.error);
     parts=Object.fromEntries(catalog.components.map(c=>[c.key,c]));current=catalog.levels[0];
     migrateProgress();
     const saved=readStorage('progress',{completed:{}});
@@ -1100,9 +1138,10 @@ async function boot() {
     lastJourney=Number(readStorage('last-lesson',1));if(!catalog.levels.some(l=>l.id===lastJourney))lastJourney=1;
     bindEvents();loadLevel(readStorage('last',1));
     if(!readStorage('welcome',false))showGuide(0);
-    window.addEventListener('beforeunload',flushSave);
+    platform.onSuspend(flushSave);
+    platform.prepareOffline().catch(()=>{ /* Online play remains available if caching is unavailable. */ });
   } catch(e) {
-    document.querySelector('main').innerHTML=`<div class="error-state"><span class="lesson-tag">THE LAB IS ALMOST READY</span><h1>Let’s reconnect.</h1><p>We couldn’t reach the circuit engine. Check your connection and try again. Your saved circuits stay on this device.</p><p>${esc(e.message)}</p><button id="retry-button" class="button primary">Try again</button></div>`;
+    document.querySelector('main').innerHTML=`<div class="error-state"><span class="lesson-tag">THE LAB IS ALMOST READY</span><h1>Let’s reopen the lab.</h1><p>The circuit engine couldn’t start. Reload to try again. Your saved circuits stay on this device.</p><p>${esc(e.message)}</p><button id="retry-button" class="button primary">Try again</button></div>`;
     $('retry-button').onclick=()=>location.reload();
   }
 }

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import {layout} from '../web/circuit-layout.mjs';
-import {objectsInBox,nodeSelection,wireSelection} from '../web/selection.mjs';
-import {BLOCK_SIZE,GRID,MAX_COORDINATE} from '../web/board-geometry.mjs';
+import {layout} from '../src/ui/circuit-layout.mjs';
+import {objectsInBox,nodeSelection,wireSelection} from '../src/ui/selection.mjs';
+import {BLOCK_SIZE,GRID,MAX_COORDINATE} from '../src/ui/board-geometry.mjs';
 
 // Geometry fixtures use port counts only; signal behavior belongs to C++.
 const parts={INPUT:{inputs:[]},OUTPUT:{inputs:[{}]},GATE:{inputs:[{}]},HIGH:{inputs:[]}};

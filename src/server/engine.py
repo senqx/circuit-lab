@@ -3,13 +3,13 @@ import ctypes
 import pathlib
 import subprocess
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 BUILD = ROOT / "build"
 
 
 def load_engine(*, build=False):
     candidates = [BUILD / "libsignal_engine.so", BUILD / "libsignal_engine.dylib", BUILD / "signal_engine.dll"]
-    source_files = list((ROOT / "engine").rglob("*.cpp")) + list((ROOT / "engine").rglob("*.hpp")) + list((ROOT / "engine").rglob("*.h")) + [ROOT / "CMakeLists.txt"]
+    source_files = list((ROOT / "src" / "engine").rglob("*.cpp")) + list((ROOT / "src" / "engine").rglob("*.hpp")) + list((ROOT / "src" / "engine").rglob("*.h")) + [ROOT / "CMakeLists.txt"]
     library = next((p for p in candidates if p.exists()), None)
     if build and (library is None or any(p.stat().st_mtime > library.stat().st_mtime for p in source_files)):
         subprocess.run(["cmake", "-S", str(ROOT), "-B", str(BUILD), "-DCMAKE_BUILD_TYPE=Release"], check=True)
@@ -19,15 +19,15 @@ def load_engine(*, build=False):
         raise RuntimeError("Build the C++ engine first: cmake -S . -B build && cmake --build build")
     lib = ctypes.CDLL(str(library))
     signatures = {
-        "sg_catalog": (ctypes.c_char_p, []),
-        "sg_reference": (ctypes.c_char_p, [ctypes.c_int]),
-        "sg_create": (ctypes.c_void_p, []),
-        "sg_destroy": (None, [ctypes.c_void_p]),
-        "sg_node": (ctypes.c_int, [ctypes.c_void_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_int]),
-        "sg_wire": (ctypes.c_int, [ctypes.c_void_p] + [ctypes.c_int] * 4),
-        "sg_state": (ctypes.c_int, [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]),
-        "sg_simulate": (ctypes.c_char_p, [ctypes.c_void_p, ctypes.POINTER(ctypes.c_int), ctypes.c_int, ctypes.c_int]),
-        "sg_check": (ctypes.c_char_p, [ctypes.c_void_p, ctypes.c_int]),
+        "circuit_catalog": (ctypes.c_char_p, []),
+        "circuit_reference": (ctypes.c_char_p, [ctypes.c_int]),
+        "circuit_create": (ctypes.c_void_p, []),
+        "circuit_destroy": (None, [ctypes.c_void_p]),
+        "circuit_node": (ctypes.c_int, [ctypes.c_void_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_int]),
+        "circuit_wire": (ctypes.c_int, [ctypes.c_void_p] + [ctypes.c_int] * 4),
+        "circuit_state": (ctypes.c_int, [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]),
+        "circuit_simulate": (ctypes.c_char_p, [ctypes.c_void_p, ctypes.POINTER(ctypes.c_int), ctypes.c_int, ctypes.c_int]),
+        "circuit_check": (ctypes.c_char_p, [ctypes.c_void_p, ctypes.c_int]),
     }
     for name, (result, args) in signatures.items():
         fn = getattr(lib, name)
@@ -53,23 +53,23 @@ def execute(lib, route, data):
         raise ValueError("Expected lists of parts and wires.")
     if len(graph["nodes"]) > 512 or len(graph["wires"]) > 4096:
         raise ValueError("Circuit exceeds the editor's size limit.")
-    handle = lib.sg_create()
+    handle = lib.circuit_create()
     if not handle:
         raise ValueError("Could not create a circuit.")
     try:
         for n in graph["nodes"]:
-            if not lib.sg_node(handle, integer(n["id"]), text(n["kind"], 32), integer(n.get("width", 1))):
+            if not lib.circuit_node(handle, integer(n["id"]), text(n["kind"], 32), integer(n.get("width", 1))):
                 raise ValueError("Invalid part in circuit.")
         for w in graph["wires"]:
-            if not lib.sg_wire(handle, *(integer(w[k]) for k in ("from", "output", "to", "input"))):
+            if not lib.circuit_wire(handle, *(integer(w[k]) for k in ("from", "output", "to", "input"))):
                 raise ValueError("Invalid wire in circuit.")
         if route == "/api/check":
-            return lib.sg_check(handle, integer(data["level"]))
+            return lib.circuit_check(handle, integer(data["level"]))
         state = data.get("state", {})
         if not isinstance(state, dict) or len(state) > 32768:
             raise ValueError("Invalid memory state.")
         for key, value in state.items():
-            if not lib.sg_state(handle, text(key, 256), integer(value)):
+            if not lib.circuit_state(handle, text(key, 256), integer(value)):
                 raise ValueError("Invalid memory state.")
         values = data.get("inputs", [])
         if not isinstance(values, list) or len(values) > 32:
@@ -78,6 +78,6 @@ def execute(lib, route, data):
         if type(tick) is not bool:
             raise ValueError("Clock tick must be true or false.")
         inputs = (ctypes.c_int * len(values))(*(integer(v) for v in values))
-        return lib.sg_simulate(handle, inputs, len(values), tick)
+        return lib.circuit_simulate(handle, inputs, len(values), tick)
     finally:
-        lib.sg_destroy(handle)
+        lib.circuit_destroy(handle)

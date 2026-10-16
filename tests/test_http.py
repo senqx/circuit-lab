@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 from wsgiref.util import setup_testing_defaults
 from wsgiref.validate import validator
 
-from server.app import create_app
+from src.server.app import create_app
 
 
 class HttpTests(unittest.TestCase):
@@ -59,7 +59,7 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(self.request("/", HTTP_IF_NONE_MATCH=headers["ETag"])[0], 304)
         self.assertEqual(self.request("/wire-router.mjs")[1]["Content-Type"], "text/javascript")
         self.assertEqual(self.request("/api/health")[0], 200)
-        for path in ["/../serve.py", "/server/app.py", "/.codex", "/fonts/", "/api/missing"]:
+        for path in ["/../serve.py", "/src/server/app.py", "/src/http_headers.py", "/.codex", "/fonts/", "/api/missing"]:
             self.assertEqual(self.request(path)[0], 404)
         self.assertEqual(self.request("/api/simulate")[0], 405)
         self.assertEqual(self.request("/api/catalog", {})[0], 405)

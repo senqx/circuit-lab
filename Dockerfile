@@ -1,31 +1,16 @@
-FROM python:3.13-slim AS runtime-base
-RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources \
-    && apt-get update && apt-get install -y --no-install-recommends libstdc++6 \
-    && rm -rf /var/lib/apt/lists/*
-
-FROM runtime-base AS builder
-RUN apt-get update && apt-get install -y --no-install-recommends cmake g++ make \
-    && rm -rf /var/lib/apt/lists/*
+FROM emscripten/emsdk:4.0.15 AS builder
 WORKDIR /src
-COPY CMakeLists.txt ./
-COPY engine/ engine/
-COPY examples/ examples/
-COPY tests/engine_tests.cpp tests/engine_tests.cpp
-RUN cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
-    && cmake --build build --parallel 2 \
-    && ctest --test-dir build --output-on-failure
+COPY CMakeLists.txt LICENSE ./
+COPY src/engine/ src/engine/
+COPY src/ui/ src/ui/
+COPY scripts/build_app.py scripts/build_app.py
+RUN emcmake cmake -S . -B build-wasm -DCMAKE_BUILD_TYPE=Release \
+    && cmake --build build-wasm --parallel 2 \
+    && python3 scripts/build_app.py --skip-compile
 
-FROM runtime-base
-WORKDIR /app
-COPY requirements.txt LICENSE ./
-RUN pip install --no-cache-dir -r requirements.txt
-COPY --from=builder /src/build/libsignal_engine.so build/libsignal_engine.so
-COPY server/ server/
-COPY web/ web/
-COPY deploy/ deploy/
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PORT=8000
-USER 65532:65532
-EXPOSE 8000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
-    CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ['PORT'] + '/api/health', timeout=3)"
-CMD ["gunicorn", "--config", "deploy/gunicorn.conf.py", "server.app:create_app()"]
+FROM nginxinc/nginx-unprivileged:1.28-alpine
+COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=builder /src/dist/app/ /usr/share/nginx/html/
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s \
+    CMD wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1

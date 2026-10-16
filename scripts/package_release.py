@@ -7,8 +7,8 @@ import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
 NAME = "circuit-lab-1.0.0"
-FILES = ["CMakeLists.txt", "README.md", "LICENSE", "serve.py", "requirements.txt", "Dockerfile", ".dockerignore", ".gitignore"]
-DIRECTORIES = ["engine", "server", "web", "examples", "tests", "docs", "deploy", "scripts"]
+FILES = ["CMakeLists.txt", "README.md", "LICENSE", "serve.py", "requirements.txt", "Dockerfile", ".dockerignore", ".gitignore", ".clang-format"]
+DIRECTORIES = ["src", "examples", "tests", "docs", "deploy", "scripts"]
 
 
 def main():
