@@ -70,7 +70,7 @@ The handbook opens on the first visit. Read the task, place parts from the left 
 | Memory | One-bit storage, enabled register, counter, address decoder |
 | Computer | Two-word RAM, four-bit processor |
 
-Drag or click to add blocks. Click two pins or drag between them to connect. Drag a connected receiving pin to move that wire's end; Escape, right-click, or an empty drop cancels. Select with a desktop-style selection box or modifier-click, and use **Del** to remove. Lesson terminals stay on the board. **Tidy circuit** arranges a messy layout, and Undo restores it.
+Drag or click to add blocks. Click two pins or drag between them to connect. An existing wire is a shortcut to its source pin: drag from a receiving pin onto it, or drag from it to a receiving pin. Drag a connected receiving pin to move that wire's end; Escape, right-click, or an empty drop cancels. Select with a desktop-style selection box or modifier-click, and use **Del** to remove. Lesson terminals stay on the board. **Tidy circuit** arranges a messy layout, and Undo restores it.
 
 **Space-drag** or middle-drag pans, scrolling or pinching zooms, and **F** fits the board. **?** opens the handbook. The task and chapter path can be hidden for more room. Gold wires flow only while carrying a nonzero signal; zero wires remain still. Motion can be paused and respects reduced-motion settings.
 
