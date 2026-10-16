@@ -16,15 +16,28 @@ export async function rewireChecks({send,js,wait,assert,click,key,screenshot}) {
     {from:2,output:0,to:51,input:0},{from:3,output:0,to:53,input:0}
   ]};
   const fixture={version:2,level:'sandbox',inputs:[1,0,5],circuit};
-  const setup=await send('Page.addScriptToEvaluateOnNewDocument',{source:`localStorage.setItem('signal-garden-v2:circuit:sandbox',${JSON.stringify(JSON.stringify(fixture))});localStorage.setItem('signal-garden-v2:last','"sandbox"');localStorage.setItem('signal-garden-v2:welcome','true');`});
-  await js('window.__oldDocument=true');await send('Page.reload');
-  await wait("!window.__oldDocument && document.querySelector('[data-node=\"50\"] .terminal-value')?.textContent==='1' && document.querySelector('[data-node=\"53\"] .terminal-value')?.textContent==='5'");
-  await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:setup.identifier});
+  async function loadFixture(data) {
+    const setup=await send('Page.addScriptToEvaluateOnNewDocument',{source:`localStorage.setItem('signal-garden-v2:circuit:sandbox',${JSON.stringify(JSON.stringify(data))});localStorage.setItem('signal-garden-v2:last','"sandbox"');localStorage.setItem('signal-garden-v2:welcome','true');`});
+    await js('window.__oldDocument=true');await send('Page.reload');
+    await wait("!window.__oldDocument && document.querySelector('[data-node=\"50\"] .terminal-value')");
+    await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:setup.identifier});
+  }
+  await loadFixture(fixture);
+  await wait("document.querySelector('[data-node=\"50\"] .terminal-value')?.textContent==='1' && document.querySelector('[data-node=\"53\"] .terminal-value')?.textContent==='5'");
   const frame=()=>js('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
   const point=(id,index=0,output=0)=>js(`(()=>{const r=document.querySelector('[data-pin="${id}:${index}:${output}"] .pin-dot').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()`);
   const press=p=>send('Input.dispatchMouseEvent',{type:'mousePressed',...p,button:'left',clickCount:1});
   const move=async p=>{await send('Input.dispatchMouseEvent',{type:'mouseMoved',...p,button:'left',buttons:1});await frame();};
   const release=p=>send('Input.dispatchMouseEvent',{type:'mouseReleased',...p,button:'left',clickCount:1});
+  const wirePoint=(from,to,output=0)=>js(`(()=>{
+    const wire=document.querySelector('[data-key="${from}:${output}:${to}:0"]'),path=wire.querySelector('.wire');
+    const pins=[...document.querySelectorAll('.pin-dot')].map(pin=>pin.getBoundingClientRect());
+    for(const fraction of [.5,.4,.6,.3,.7,.2,.8]){
+      const p=path.getPointAtLength(path.getTotalLength()*fraction).matrixTransform(path.getScreenCTM());
+      if(document.elementFromPoint(p.x,p.y)?.closest('[data-wire]')===wire&&pins.every(r=>Math.hypot(p.x-r.x-r.width/2,p.y-r.y-r.height/2)>25))return {x:p.x,y:p.y};
+    }
+    throw Error('No unobstructed wire segment for ${from}:${output}:${to}');
+  })()`);
   const value=id=>`document.querySelector('[data-node="${id}"] .terminal-value').textContent`;
   const saved="JSON.parse(localStorage.getItem('signal-garden-v2:circuit:sandbox')).circuit";
   const connected=(from,to,input=0)=>`[...document.querySelectorAll('[data-wire]')].some(e=>e.dataset.key==='${from}:0:${to}:${input}')`;
@@ -110,6 +123,58 @@ export async function rewireChecks({send,js,wait,assert,click,key,screenshot}) {
   await assert(`${connected(3,54)} && !(${connected(3,53)})`,'Four-bit wires can move between LED outputs');
   await click('#undo-button');await wait(`${value(53)}==='5'`);
 
+  const rootWire=await wirePoint(1,50),otherWire=await wirePoint(2,51),busWire=await wirePoint(3,53);
+  await press(rootWire);await release(rootWire);
+  await assert("!document.querySelector('.wire-preview') && !document.getElementById('selection-tools').hidden && document.querySelector('[data-key=\"1:0:50:0\"] .wire.selected')",'Clicking a wire still selects it for tracing and deletion');
+  await key('Delete');await wait(`${value(50)}==='?'`);
+  await assert(`${connected(1,100)} && !(${connected(1,50)})`,'Deleting a selected wire preserves the other connections from its source');
+  await click('#undo-button');await wait(`${value(50)}==='1'`);
+  await js('window.__rewireRequests=0');
+  await press(target);await move(rootWire);
+  await assert("document.querySelector('[data-pin=\"1:0:1\"].snap-target') && document.querySelector('[data-key=\"1:0:50:0\"].traced')",'Hovering an existing wire highlights that wire and its actual sending pin');
+  await assert("(()=>{const path=document.querySelector('.wire-preview'),p=path.getPointAtLength(0).matrixTransform(path.getScreenCTM()),r=document.querySelector('[data-pin=\"1:0:1\"] .pin-dot').getBoundingClientRect();return Math.hypot(p.x-r.x-r.width/2,p.y-r.y-r.height/2)<.1})()",'The preview connects directly from the original output rather than the touched segment');
+  await js("window.dispatchEvent(new Event('beforeunload'))");
+  await assert(`JSON.stringify(${saved})===${JSON.stringify(JSON.stringify(circuit))} && window.__rewireRequests===0 && document.getElementById('undo-button').disabled`,'Targeting a wire leaves the graph, undo history and simulation unchanged until release');
+  await release(rootWire);await wait(`${value(52)}==='1'`);
+  await js("window.dispatchEvent(new Event('beforeunload'))");
+  await assert(`${saved}.wires.some(w=>w.from===1&&w.output===0&&w.to===52&&w.input===0&&Object.keys(w).length===4) && ${saved}.nodes.length===${circuit.nodes.length} && ${connected(1,50)} && window.__rewireRequests===1`,'Dropping onto a wire saves one ordinary connection from its root and simulates once');
+  await screenshot('26-wire-source-shortcut.png');
+  await click('#undo-button');await wait(`${value(52)}==='?'`);
+  await click('#redo-button');await wait(`${value(52)}==='1'`);
+  await click('#undo-button');await wait(`${value(52)}==='?'`);
+
+  await click('[data-pin="52:0:0"] .pin-dot');await press(otherWire);await release(otherWire);
+  await wait(`${value(52)}==='0'`);
+  await assert(`${connected(2,52)} && ${connected(1,50)}`,'Clicking an input followed by a wire uses the chosen wire’s source');
+  await click('#undo-button');await wait(`${value(52)}==='?'`);
+  await click('[data-pin="50:0:0"] .pin-dot');await press(otherWire);await release(otherWire);
+  await wait(`${value(50)}==='0'`);
+  await assert(`${connected(2,50)} && ${connected(2,51)} && !(${connected(1,50)})`,'A clicked occupied input can replace its source by choosing an existing wire');
+  await click('#undo-button');await wait(`${value(50)}==='1'`);
+  await click('[data-pin="52:0:0"] .pin-dot');
+  await js("document.querySelector('[data-key=\"1:0:50:0\"]').focus()");await key('Enter');
+  await wait(`${value(52)}==='1'`);
+  await assert(`${connected(1,52)}`,'Keyboard activation can use a wire as the source of a pending input connection');
+  await click('#undo-button');await wait(`${value(52)}==='?'`);
+
+  for(const cancel of ['empty','escape','another-output']) {
+    await js('window.__rewireRequests=0');
+    await press(rootWire);await move(cancel==='another-output'?otherWire:blank);
+    if(cancel==='escape')await key('Escape');
+    await release(cancel==='another-output'?otherWire:blank);
+    await assert(`${connected(1,50)} && ${connected(2,51)} && document.querySelectorAll('[data-wire]').length===4 && !document.querySelector('.wire-preview,.rerouting') && document.getElementById('undo-button').disabled && window.__rewireRequests===0`,`A wire-source drag cancelled by ${cancel} preserves both original connections`);
+  }
+  await press(rootWire);await move(target);await release(target);await wait(`${value(52)}==='1'`);
+  await assert(`${connected(1,52)} && ${connected(1,50)}`,'Dragging from a wire creates a normal connection from its root without lifting the existing wire');
+  await click('#undo-button');await wait(`${value(52)}==='?'`);
+  await press(target);await move(busWire);
+  await assert("document.querySelector('.wire-preview.invalid')",'Wire targets show width mismatches before release');
+  await release(busWire);
+  await assert(`!(${connected(3,52)}) && document.getElementById('undo-button').disabled`,'A four-bit wire cannot supply a one-bit input');
+  await press(busEnd);await move(busWire);await release(busWire);await wait(`${value(54)}==='5'`);
+  await assert(`${connected(3,54)} && ${connected(3,53)}`,'Four-bit wire targeting reuses the original bus output');
+  await click('#undo-button');await wait(`${value(54)}==='?'`);
+
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
   await click('#fit-button');await js('window.scrollTo(0,0)');
   await send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
@@ -123,7 +188,36 @@ export async function rewireChecks({send,js,wait,assert,click,key,screenshot}) {
   await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
   await wait(`${value(52)}==='1' && ${value(50)}==='?'`);
   await assert(`${connected(1,52)} && !(${connected(1,50)})`,'Touch dragging reroutes a bulb connection on a phone');
+  await click('#undo-button');await wait(`${value(50)}==='1' && ${value(52)}==='?'`);
+  const touchWire=await wirePoint(1,50);
+  for(const reverse of [false,true]) {
+    const start=reverse?touchWire:touchEnd,end=reverse?touchEnd:touchWire;
+    await send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{...start,id:1}]});
+    await send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{...end,id:1}]});await frame();
+    await send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    await wait(`${value(52)}==='1'`);
+    await assert(`${connected(1,52)} && ${connected(1,50)}`,`Touch dragging ${reverse?'from':'onto'} a wire uses its original source`);
+    await click('#undo-button');await wait(`${value(52)}==='?'`);
+  }
   await send('Emulation.setTouchEmulationEnabled',{enabled:false});
   await send('Emulation.setDeviceMetricsOverride',{width:1512,height:982,deviceScaleFactor:1,mobile:false});
   await js('window.scrollTo(0,0);window.__engine.request=window.__rewireRequest');await click('#fit-button');
+
+  await loadFixture({version:2,level:'sandbox',inputs:[5],circuit:{nodes:[
+    {id:1,kind:'INPUT',width:4,x:0,y:0},{id:100,kind:'SPLIT4',width:1,x:300,y:0},
+    {id:50,kind:'OUTPUT',width:1,x:650,y:0},{id:51,kind:'OUTPUT',width:1,x:650,y:210}
+  ],wires:[{from:1,output:0,to:100,input:0},{from:100,output:1,to:50,input:0}]}});
+  await wait(`${value(50)}==='0'`);
+  const splitWire=await wirePoint(100,50,1),splitTarget=await point(51);
+  await press(splitTarget);await move(splitWire);
+  await assert("document.querySelector('[data-pin=\"100:1:1\"].snap-target')",'A multi-output wire resolves to the exact sending pin');
+  await release(splitWire);await wait(`${value(51)}==='0'`);
+  await js("window.dispatchEvent(new Event('beforeunload'))");
+  await assert(`${saved}.wires.some(w=>w.from===100&&w.output===1&&w.to===51&&w.input===0)`,'The new connection preserves the source output index');
+  const original=await wirePoint(100,50,1);
+  await press(original);await release(original);await key('Delete');await wait(`${value(50)}==='?'`);
+  await assert(`${value(51)}==='0' && document.querySelector('[data-key=\"100:1:51:0\"]')`,'The new connection works independently after the targeted wire is deleted');
+  await js("window.dispatchEvent(new Event('beforeunload'));window.__oldDocument=true");await send('Page.reload');
+  await wait(`!window.__oldDocument && document.querySelector('[data-node=\"51\"] .terminal-value')?.textContent==='0'`);
+  await assert(`${value(50)}==='?' && document.querySelector('[data-key=\"100:1:51:0\"]')`,'The ordinary source connection survives saving and reloading');
 }

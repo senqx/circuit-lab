@@ -219,8 +219,11 @@ function drawWireHighlight(el) {
   for(const path of $('wire-highlight').children)path.setAttribute('d',el.routePath);
 }
 function wireAt(e) {
+  const hit=document.elementFromPoint(e.clientX,e.clientY);
+  if(!hit||!canvas.contains(hit)||hit.closest('[data-node]'))return null;
   const point=worldPoint(e);let closest=null,distance=8/camera.scale;
   for(const el of wireElements.values()) {
+    if(el.classList.contains('rerouting'))continue;
     const points=el.route?.points||[];
     for(let i=1;i<points.length;i++) {
       const a=points[i-1],b=points[i];
@@ -231,6 +234,10 @@ function wireAt(e) {
     }
   }
   return closest;
+}
+function wireSource(el) {
+  const w=graph.wires[Number(el.dataset.wire)];
+  return `${w.from}:${w.output}:1`;
 }
 function routeElement(w,el) {
   const from=nodeMap.get(w.from),to=nodeMap.get(w.to);
@@ -325,7 +332,7 @@ function updateSignals() {
     el.classList.toggle('rerouting',rerouting);
     flow.setActive(wireKey(w),value>0&&!rerouting);
     const description=`${wireDescription(w)} · ${valueText(value)}`;
-    el.setAttribute('aria-label',description+'. Select to trace; Delete to remove.');
+    el.setAttribute('aria-label',description+'. Select to trace; drag to connect from its source; Delete to remove.');
     el.querySelector('title').textContent=description;
   });
   renderGuidance();renderWireTrace();
@@ -378,17 +385,31 @@ function nearestPin(event,opposite=false) {
   }
   return nearest;
 }
+function connectionTarget(event) {
+  const pin=nearestPin(event,true);
+  const wire=pin||pending?.output?null:wireAt(event);
+  return {pin:pin||(wire?wireSource(wire):null),wire};
+}
 function setHoverPin(info) {
-  if(info===hoverPin)return;
-  if(hoverPin)document.querySelector(`[data-pin="${hoverPin}"]`)?.classList.remove('snap-target');
-  hoverPin=info;
-  if(hoverPin)document.querySelector(`[data-pin="${hoverPin}"]`)?.classList.add('snap-target');
+  if(info!==hoverPin){
+    if(hoverPin)document.querySelector(`[data-pin="${hoverPin}"]`)?.classList.remove('snap-target');
+    hoverPin=info;
+    if(hoverPin)document.querySelector(`[data-pin="${hoverPin}"]`)?.classList.add('snap-target');
+  }
   renderGesture();
 }
 function renderGesture() {
   const moving=drag?.type==='node'&&drag.moved;
   $('gesture-tools').hidden=!inventoryActive&&!pending&&!moving;
-  const message=inventoryActive?'Drop on the board. Outside cancels.':moving?`Move ${drag.originals.length===1?'the block':'the group'}. Esc puts it back.`:pending?.wire?'Move the wire to a receiving dot. Esc or an empty drop puts it back.':hoverPin?'Connect to the highlighted dot.':drag?.moved?'Release near a dot. Elsewhere cancels.':'Choose another dot. Click empty board to cancel.';
+  let message;
+  if(inventoryActive)message='Drop on the board. Outside cancels.';
+  else if(moving)message=`Move ${drag.originals.length===1?'the block':'the group'}. Esc puts it back.`;
+  else if(pending?.wire)message='Move the wire to a receiving dot. Esc or an empty drop puts it back.';
+  else if(hoverPin)message=hoverWire?'Connect to this wire’s sending dot.':'Connect to the highlighted dot.';
+  else {
+    const target=pending?.output?'a receiving dot':'a sending dot or wire';
+    message=drag?.moved?`Release near ${target}. Elsewhere cancels.`:`Choose ${target}. Click empty board to cancel.`;
+  }
   if($('gesture-message').textContent!==message)$('gesture-message').textContent=message;
 }
 function cancelGesture() {
@@ -713,7 +734,7 @@ function deleteSelected() {
 function selectPin(info) {
   const p=parsePin(info);
   selected.clear();
-  hoverPoint=null;setHoverPin(null);
+  hoverPoint=null;hoverWire=null;setHoverPin(null);
   if(!pending){pending=p;renderBoard();return;}
   if(p.id===pending.id&&p.index===pending.index&&p.output===pending.output){pending=null;renderBoard();return;}
   if(p.output===pending.output){pending=p;renderBoard();return;}
@@ -982,7 +1003,8 @@ function bindEvents() {
     const point=worldPoint(e),modifier=e.shiftKey||e.ctrlKey||e.metaKey;
     const pan=()=>{drag={type:'pan',pointerId:e.pointerId,clientX:e.clientX,clientY:e.clientY,x:camera.x,y:camera.y};canvas.classList.add('panning');};
     if(e.button===1||spaceDown){pan();return;}
-    const pinInfo=nearestPin(e),nodeEl=e.target.closest('[data-node]'),wireEl=nodeEl?null:wireAt(e);
+    const nodeEl=e.target.closest('[data-node]'),wireEl=wireAt(e);
+    const pinInfo=nearestPin(e)||(pending&&wireEl?wireSource(wireEl):null);
     if(pinInfo&&!modifier){
       const p=parsePin(pinInfo),wire=!pending&&!p.output?incoming.get(`${p.id}:${p.index}`):null;
       drag={type:'pin',pointerId:e.pointerId,start:pinInfo,wire,clientX:e.clientX,clientY:e.clientY,moved:false};
@@ -998,7 +1020,11 @@ function bindEvents() {
       drag.whole=drag.originals.length===graph.nodes.length;
       return;
     }
-    if(wireEl){selectObject(wireEl.dataset.selection,modifier);return;}
+    if(wireEl){
+      selectObject(wireEl.dataset.selection,modifier);
+      if(!modifier)drag={type:'wire',pointerId:e.pointerId,start:wireSource(wireEl),clientX:e.clientX,clientY:e.clientY,moved:false};
+      return;
+    }
     if(e.pointerType==='touch'){pan();return;}
     drag={type:'marquee',pointerId:e.pointerId,start:point,end:point,before:new Set(selected),additive:modifier,moved:false};
     if(!modifier){selected.clear();updateSelection();}
@@ -1012,11 +1038,12 @@ function bindEvents() {
       camera.y=pinch.world.y-((a.y+b.y)/2-rect.top)/camera.scale;
       applyCamera();return;
     }
-    const point=worldPoint(e);hoverPoint=point;
-    if(!drag&&!pending){hoverWire=e.target.closest('[data-node]')?null:wireAt(e)?.dataset.key||null;renderWireTrace();}
+    const point=worldPoint(e);
+    if(!drag&&!pending){hoverWire=wireAt(e)?.dataset.key||null;renderWireTrace();}
     if(drag&&drag.pointerId!==e.pointerId)return;
-    if(drag?.type==='pin'&&!drag.moved&&Math.hypot(e.clientX-drag.clientX,e.clientY-drag.clientY)>4){
+    if((drag?.type==='pin'||drag?.type==='wire')&&!drag.moved&&Math.hypot(e.clientX-drag.clientX,e.clientY-drag.clientY)>4){
       drag.moved=true;
+      if(drag.type==='wire'){drag.type='pin';selectPin(drag.start);}
       if(drag.wire&&pending){
         const w=drag.wire;
         // Keep the circuit intact until drop; reuse the normal connection preview.
@@ -1024,7 +1051,12 @@ function bindEvents() {
         updateSignals();
       }
     }
-    if(pending){setHoverPin(nearestPin(e,true));queueBoardFrame();}
+    hoverPoint=point;
+    if(pending){
+      const target=connectionTarget(e);
+      hoverWire=target.wire?.dataset.key||null;renderWireTrace();
+      setHoverPin(target.pin);queueBoardFrame();
+    }
     if(!drag)return;
     if(drag.type==='pan'){camera.x=drag.x-(e.clientX-drag.clientX)/camera.scale;camera.y=drag.y-(e.clientY-drag.clientY)/camera.scale;applyCamera();}
     if(drag.type==='marquee'){
@@ -1047,7 +1079,7 @@ function bindEvents() {
     if(!drag||drag.pointerId!==e.pointerId)return;
     const action=drag;drag=null;
     if(action.type==='pin'){
-      const target=nearestPin(e,true);
+      const target=connectionTarget(e).pin;
       if(pending&&action.moved){if(target&&target!==action.start)selectPin(target);if(pending)cancelGesture();}
     }
     if(action.type==='node'){
@@ -1065,7 +1097,7 @@ function bindEvents() {
   canvas.addEventListener('pointerleave',()=>{hoverWire=null;renderWireTrace();});
   canvas.addEventListener('focusin',e=>{hoverWire=e.target.closest('[data-wire]')?.dataset.key||null;renderWireTrace();});
   canvas.addEventListener('focusout',()=>{hoverWire=null;renderWireTrace();});
-  canvas.addEventListener('contextmenu',e=>{const wire=e.target.closest('[data-node]')?null:wireAt(e);if(wire){e.preventDefault();if(!selected.has(wire.dataset.selection))selectObject(wire.dataset.selection);deleteSelected();}});
+  canvas.addEventListener('contextmenu',e=>{const wire=wireAt(e);if(wire){e.preventDefault();if(!selected.has(wire.dataset.selection))selectObject(wire.dataset.selection);deleteSelected();}});
   canvas.addEventListener('wheel',e=>{e.preventDefault();zoom(Math.exp(-e.deltaY*.0015),{x:e.clientX,y:e.clientY});},{passive:false});
   document.addEventListener('keyup',e=>{if(e.code==='Space'||e.key===' '){spaceDown=false;canvas.classList.remove('pan-ready');}});
   document.addEventListener('keydown',e=>{
@@ -1086,7 +1118,11 @@ function bindEvents() {
       if(pinEl){e.preventDefault();selectPin(pinEl.dataset.pin);}
       else if(toggle&&!e.shiftKey&&!e.ctrlKey&&!e.metaKey){e.preventDefault();changeInput(Number(toggle.dataset.toggle));}
       else if(nodeEl){e.preventDefault();selectObject(nodeSelection(Number(nodeEl.dataset.node)),e.shiftKey||e.ctrlKey||e.metaKey);}
-      else if(wire){e.preventDefault();selectObject(wire.dataset.selection,e.shiftKey||e.ctrlKey||e.metaKey);}
+      else if(wire){
+        e.preventDefault();
+        if(pending&&!e.shiftKey&&!e.ctrlKey&&!e.metaKey)selectPin(wireSource(wire));
+        else selectObject(wire.dataset.selection,e.shiftKey||e.ctrlKey||e.metaKey);
+      }
       else if(e.key===' '&&e.target===canvas){e.preventDefault();spaceDown=true;canvas.classList.add('pan-ready');}
     }
     if(!pinEl&&(nodeEl||e.target===canvas)&&['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)){

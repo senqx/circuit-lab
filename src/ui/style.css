@@ -420,6 +420,7 @@ dialog[data-kind=handbook] #modal-content {display:grid;grid-template-columns:1f
 .binary-example span {display:flex;flex-direction:column;align-items:center;gap:8px}
 .binary-example b {display:grid;place-items:center;width:34px;height:34px;border-radius:3px;background:#b8c0aa;border:1px solid #95a384;font-size:16px}
 .binary-example b.on {background:#eccc7c;border-color:#b39b54;color:#59491f}
+.binary-example strong {align-self:flex-end;display:grid;place-items:center;height:34px;font-size:16px;white-space:nowrap}
 .compact-tools dd {margin-left:0;font-size:11px}
 .compact-tools>div {margin:12px 0}
 .skip-note {margin-top:14px;font-size:11px}
