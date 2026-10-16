@@ -340,6 +340,9 @@ dialog[data-kind=handbook] #modal-content {display:grid;grid-template-columns:1f
 .book-page h2 {font:34px/1.12 Georgia,serif;letter-spacing:-.5px;margin:18px 0}
 .book-page p {line-height:1.8}
 .book-page .book-note {margin-top:24px;border-top:1px solid #b6bea1;padding-top:16px;font-size:11px;font-style:italic}
+.boolean-formula {font-size:1.15em}
+.boolean-key {display:grid;grid-template-columns:max-content 1fr;gap:6px 14px;align-items:center;font-size:12px;margin:16px 0}
+.boolean-key dd {margin:0;line-height:1.6}
 .book-footer {grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:19px 30px;background:#d6dbc3;border-top:1px solid #b7bea2;position:sticky;bottom:0;z-index:1;font-size:10px;color:#56674b}
 .book-footer>div {display:flex;flex-direction:column;align-items:center;gap:10px;flex-shrink:0}
 .book-footer .text-button {font-size:10px}
@@ -375,10 +378,19 @@ dialog[data-kind=handbook] #modal-content {display:grid;grid-template-columns:1f
 .switch-rule {font:8px var(--mono);fill:#b3c4cd;letter-spacing:.2px}
 .inside-source,.inside-output,.inside-control,.inside-contact {fill:none;stroke:#89a8b9;stroke-width:2;stroke-linecap:round}
 .inside-control {stroke-dasharray:3 3;stroke-width:1.2}
-.inside-source.high,.inside-output.high {stroke:#e5b574}
+.inside-source.high,.inside-output.high,.inside-contact.high,.inside-control.high {stroke:#e5b574}
 .contact-dot {fill:#1e3348;stroke:#b1cad8;stroke-width:1.5}
 .contact-caption {font:8px var(--mono);fill:#a8bec9}
+.enable-caption {font:7px var(--mono);fill:#a8bec9}
 .switch-node[data-contact="-1"] .inside-contact {stroke-dasharray:3 3}
+.nand-challenge {margin:14px 0;padding:12px;border:1px solid #8c9b7e;border-radius:5px;background:#e9ead8;color:#354b36}
+.nand-challenge h3 {font-size:12px;margin:0 0 6px}
+.nand-challenge p {font-size:11px;line-height:1.6;margin:5px 0}
+.nand-challenge.achieved {border-color:#628166;background:#e0ecd8}
+.nand-challenge details {font-size:11px;margin-top:8px}
+.nand-challenge summary {cursor:pointer;font-weight:600}
+.nand-challenge .text-button {color:#375b4a;font-size:10px;margin-top:7px}
+.nand-challenge .challenge-best {border-top:1px solid #bbc8ac;padding-top:6px}
 .selection-tools .icon-button {width:auto;padding:0 8px;gap:5px;font-size:10px}
 /* Only this temporary preview changes during an inventory drag. */
 .inventory-ghost {position:fixed;left:0;top:0;width:144px;height:144px;pointer-events:none;z-index:80;transform-origin:0 0;will-change:transform;opacity:.55}
@@ -387,8 +399,12 @@ dialog[data-kind=handbook] #modal-content {display:grid;grid-template-columns:1f
 .inventory-ghost .pin-hit {display:none}
 .part-button.dragging {opacity:.45;cursor:grabbing}
 .drop-ready {outline:2px solid #9abdaa;outline-offset:-2px}
-.book-index {grid-column:1/-1;display:flex;align-items:center;gap:22px;padding:20px 55px 17px 30px;border-bottom:1px solid #b7bea2;background:#d6dbc3;color:#526349;font-size:12px}
+.book-index {grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:12px 22px;padding:20px 55px 17px 30px;border-bottom:1px solid #b7bea2;background:#d6dbc3;color:#526349;font-size:12px}
 .book-index>span {font:9px var(--mono);letter-spacing:1px}
+.book-contents {flex-basis:100%;display:flex;flex-wrap:wrap;gap:4px 12px}
+.book-contents button {padding:6px 0;min-height:30px;color:inherit;font-size:11px;border-bottom:2px solid transparent}
+.book-contents button:hover,.book-contents button[aria-current="page"] {border-bottom-color:#526349}
+.book-contents button[aria-current="page"] {font-weight:600}
 .book-steps {padding-left:19px;display:flex;flex-direction:column;gap:17px;font-size:12px;line-height:1.8;color:#526349;margin:22px 0 0}
 .book-steps strong {color:#354e38}
 .handbook-footer {display:grid;grid-template-columns:1fr auto 1fr;gap:20px;align-items:center}

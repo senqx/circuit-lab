@@ -15,14 +15,14 @@ export async function releaseChecks({send,js,wait,assert,click}) {
     await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:setup.identifier});
   }
   await reload(fixture);
-  await js(`window.__nativeFetch=window.fetch;window.__requests=[];window.__release=[];
-    window.fetch=async(url,options)=>{
-      if(String(url).endsWith('/simulate')){
-        window.__requests.push(JSON.parse(options.body));
+  await js(`(async()=>{window.__engine=(await import(new URL('engine/client.mjs',document.baseURI))).engine;window.__nativeRequest=window.__engine.request.bind(window.__engine);window.__requests=[];window.__release=[];
+    window.__engine.request=async(method,data)=>{
+      if(method==='simulate'){
+        data=structuredClone(data);window.__requests.push(data);
         if(window.__requests.length<=2)await new Promise(resolve=>window.__release.push(resolve));
       }
-      return window.__nativeFetch(url,options);
-    };`);
+      return window.__nativeRequest(method,data);
+    };})()`);
   await click('[data-toggle="1"] rect');await wait('window.__requests.length===1');
   await click('#tick-button');await click('[data-toggle="1"] rect');
   await assert("document.getElementById('tick-button').disabled",'An in-flight clock step stays disabled while inputs change');
@@ -31,7 +31,7 @@ export async function releaseChecks({send,js,wait,assert,click}) {
   await assert("document.getElementById('tick-button').disabled",'Finishing an earlier display request does not unlock the pending clock');
   await js('window.__release.shift()()');await wait(`window.__requests.length===3 && ${value}==='1' && !document.getElementById('tick-button').disabled`);
   await assert("document.querySelector('[data-node=\"1\"] .terminal-value').textContent==='0' && document.getElementById('tick-count').textContent==='Step 1'",'The later input refresh preserves captured memory and counts one step');
-  await js('window.fetch=window.__nativeFetch');
+  await js('window.__engine.request=window.__nativeRequest');
 
   // Import through the actual file input, keeping the existing board on failure.
   await js('window.dispatchEvent(new Event("beforeunload"))');

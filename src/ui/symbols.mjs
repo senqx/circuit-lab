@@ -1,8 +1,9 @@
 // The inventory and workbench share these gate silhouettes and pin positions.
 export function gateDrawing(key) {
-  key=({NOT4:'NOT',AND4:'AND'}[key]||key);
+  key=({NOT4:'NOT',AND4:'AND',SWITCH:'BUFFER'}[key]||key);
   const body={
     NOT:'M32 30 110 72 32 114Z',
+    BUFFER:'M32 30 110 72 32 114Z',
     AND:'M32 30H72A42 42 0 0 1 72 114H32Z',
     NAND:'M32 30H66A42 42 0 0 1 66 114H32Z',
     OR:'M26 30Q50 72 26 114Q88 114 120 72Q88 30 26 30Z',
@@ -10,7 +11,7 @@ export function gateDrawing(key) {
   }[key];
   if(!body)return '';
   const edge=key==='OR'?37:key==='XOR'?43:32;
-  const leads=key==='NOT'?'M0 72H32M122 72H144':`M0 60H${edge}M0 84H${edge}M${key==='NAND'?120:key==='AND'?114:120} 72H144`;
+  const leads=key==='BUFFER'?'M0 72H32M110 72H144':key==='NOT'?'M0 72H32M122 72H144':`M0 60H${edge}M0 84H${edge}M${key==='NAND'?120:key==='AND'?114:120} 72H144`;
   return `<path class="gate-leads" d="${leads}"/><path class="gate-body" d="${body}"/>${key==='NOT'||key==='NAND'?`<circle class="gate-body" cx="${key==='NOT'?116:114}" cy="72" r="6"/>`:''}${key==='XOR'?'<path class="gate-leads" d="M20 30Q44 72 20 114"/>':''}`;
 }
 export function glyph(key) {
@@ -36,7 +37,7 @@ export function glyph(key) {
     INPUT:'<path d="M3 4h26l11 10-11 10H3Z"/><text x="17" y="18" text-anchor="middle" fill="currentColor" stroke="none" font-size="12">1</text>',
     OUTPUT:'<path d="M18 22h8m-8 3h8m-4 0v3M17 19c0-4-5-5-5-10a10 10 0 0 1 20 0c0 5-5 6-5 10Z"/>',
   };
-  const label=({COUNT4:'PC',ZERO4:'=0',RAM2:'RAM',ALU4:'ALU',DECODE2:'DEC',CPU4:'CPU'}[key]||key).replace(/[^A-Z0-9=]/g,'');
+  const label=({COUNT4:'CNT',ZERO4:'=0',RAM2:'RAM',ALU4:'ALU',DECODE2:'DEC',CPU4:'CPU'}[key]||key).replace(/[^A-Z0-9=]/g,'');
   const drawing=lines[key]||`<rect x="7" y="3" width="30" height="22" rx="1"/><path d="M1 8h6M1 20h6M37 8h6M37 20h6"/><text x="22" y="17" text-anchor="middle" fill="currentColor" stroke="none" font-family="monospace" font-size="7">${label}</text>`;
   return `<svg viewBox="0 0 44 28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${drawing}</svg>`;
 }

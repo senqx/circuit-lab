@@ -6,6 +6,7 @@ import {editorChecks} from './editor-browser.mjs';
 import {feedbackChecks} from './feedback-browser.mjs';
 import {rewireChecks} from './rewire-browser.mjs';
 import {releaseChecks} from './release-browser.mjs';
+import {curriculumChecks} from './curriculum-browser.mjs';
 import path from 'node:path';
 const url=process.argv[2]?.startsWith('http')?process.argv[2]:'http://127.0.0.1:18437';
 const debug=process.argv[3]||'http://127.0.0.1:18438';
@@ -31,6 +32,7 @@ async function reload(ready){await js('window.__oldDocument=true');await send('P
 async function turnPage(selector){await click(selector);await wait("!document.getElementById('modal').dataset.turning");}
 try {
  await send('Page.enable');await send('Runtime.enable');
+ await send('Storage.clearDataForOrigin',{origin:new URL(url).origin,storageTypes:'service_workers,cache_storage'});
  await send('Network.enable');await send('Network.setCacheDisabled',{cacheDisabled:true});
  await send('Emulation.setDeviceMetricsOverride',{width:1512,height:982,deviceScaleFactor:1,mobile:false});
  await send('Page.navigate',{url});await wait("document.querySelector('[data-node]')");
@@ -39,6 +41,9 @@ try {
    await reload("document.querySelector('[data-shape^=NAND]') && document.body.classList.contains('free-play')");
    await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:setup.identifier});
    await editorChecks({send,js,wait,assert,click,mouse,key,screenshot});
+ } else if(process.argv.includes('--curriculum')) {
+   await curriculumChecks({send,js,wait,assert,click,screenshot});
+   await assert(`${JSON.stringify(errors)}.length===0`,'No browser runtime errors during curriculum checks');
  } else if(process.argv.includes('--feedback')) {
    await feedbackChecks({send,js,wait,assert,click,key,screenshot});
  } else if(process.argv.includes('--release')) {
@@ -140,7 +145,9 @@ try {
  await assert("document.getElementById('modal').dataset.turning==='true' && document.getElementById('book-spread').getAnimations({subtree:true}).some(a=>a.playState==='running')",'Handbook pages physically rotate when turning');
  await wait("!document.getElementById('modal').dataset.turning");
  await assert("document.querySelector('.book-page').textContent.includes('Small rules') && document.querySelector('.binary-example')",'Handbook turns to gates and binary LEDs');
+ await turnPage('#guide-next');await assert("document.querySelector('.book-index strong').textContent==='Circuit design' && document.getElementById('book-spread').textContent.includes('sum of products')",'The handbook teaches truth-table construction and simplification');
  await turnPage('#guide-next');await assert("document.getElementById('guide-next').disabled && document.querySelector('.book-page').textContent.includes('Remember')",'The last handbook spread explains memory and tools');
+ await turnPage('#guide-previous');
  await turnPage('#guide-previous');
  await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
  await turnPage('#guide-previous');
@@ -220,7 +227,7 @@ try {
  await click('[data-toggle="1"] rect');await wait("document.querySelector('[data-node=\"50\"] .terminal-value').textContent==='0'");
  await wait("document.querySelector('.wire.high')",'The engine has applied the changed data input');
  await assert("document.querySelectorAll('.wire.high').length===1 && document.querySelectorAll('.wire.low').length===2",'A stopped railway switch has flow only on its active incoming wire');
- await assert("document.querySelector('.switch-node').dataset.contact==='0' && document.querySelector('.contact-caption').textContent.includes('Gap')",'The normal switch shows an open bridge at EN=0');
+ await assert("document.querySelector('.switch-node').dataset.contact==='0' && document.querySelector('.contact-caption').textContent.includes('Open gap')",'The normal switch shows an open bridge at EN=0');
  await click('[data-toggle="2"] rect');await wait("document.querySelector('[data-node=\"50\"] .terminal-value').textContent==='1'");
  await assert("[...document.querySelectorAll('.switch-inside .node-pin-label')].map(e=>e.textContent).join(',')==='D,EN' && document.querySelector('.switch-rule').textContent.includes('EN')",'Switches use standard data and enable names');
  await assert("document.querySelector('.switch-node').dataset.contact==='1'",'The normal bridge closes at EN=1');
@@ -412,7 +419,8 @@ try {
  await feedbackChecks({send,js,wait,assert,click,key,screenshot});
  await rewireChecks({send,js,wait,assert,click,key,screenshot});
  await releaseChecks({send,js,wait,assert,click});
+ await curriculumChecks({send,js,wait,assert,click,screenshot});
  await assert(`${JSON.stringify(errors)}.length===0`,'No browser runtime errors');
  console.log('Browser acceptance checks passed.');
  }
-} catch(error) {console.log(await js("({scrollY,inspectorTop:document.getElementById('inspector')?.getBoundingClientRect().top,headingTop:document.querySelector('.task-heading')?.getBoundingClientRect().top,errors:document.querySelector('.error-state')?.textContent})"));await screenshot('failure.png');throw error;} finally {close();}
+} catch(error) {console.error('Browser runtime errors:',errors);console.log(await js("({scrollY,inspectorTop:document.getElementById('inspector')?.getBoundingClientRect().top,headingTop:document.querySelector('.task-heading')?.getBoundingClientRect().top,errors:document.querySelector('.error-state')?.textContent})"));await screenshot('failure.png');throw error;} finally {close();}

@@ -1,58 +1,87 @@
 # Web deployment
 
-CircuIT Lab is ready for a web-first deployment on a Linux Docker host. The C++17 engine remains reusable through its C/C++ APIs for later downloadable or mobile clients. The current web interface requires a modern browser and an active connection to the engine.
+CircuIT Lab is a static application. The C++ engine runs as WebAssembly in a browser worker. The host delivers files; it does not evaluate or store player circuits. The same build is suitable for future mobile and desktop shells.
+
+## Build and publish static files
+
+Install Python 3.10+ and either Emscripten or Docker, then run:
+
+```sh
+python3 scripts/build_app.py
+python3 serve.py --no-build
+```
+
+With Emscripten installed, the build uses `emcmake`. Otherwise it uses the official `emscripten/emsdk:4.0.15` Docker image. `--docker` selects that image explicitly. `--skip-compile` repackages interface changes with an already compiled engine; do not use it after changing C++ or CMake.
+
+Publish the **contents of `dist/app`**, preserving its directories, to an HTTPS static host. GitHub Pages, a static-site service, or a normal web server can serve it. For GitHub project Pages, the application works under `/circuit-lab/`; no hardcoded domain or root API path is used. Deploy the generated artifact, not the `src/ui/` source directory, which does not contain the compiled engine or assembled service worker.
+
+Use a complete/atomic deployment so files from different builds are not mixed. No public deployment or GitHub Actions workflow is performed automatically by the build.
+
+Required host settings:
+
+| File | Content type |
+| --- | --- |
+| `.wasm` | `application/wasm` |
+| `.js`, `.mjs` | `text/javascript` or `application/javascript` |
+| `.webmanifest` | `application/manifest+json` |
+
+If configuring a Content Security Policy, allow same-origin modules/workers and `script-src 'self' 'wasm-unsafe-eval'`. The supplied server policies include this. No `unsafe-eval`, cross-origin isolation, or shared-memory headers are required. A restrictive proxy policy must also permit these capabilities.
+
+## Installation, offline use, and updates
+
+HTTPS or localhost enables the service worker. Its first successful installation caches the complete application, including fonts and WebAssembly. Afterwards, a fresh page and engine worker can start offline. Installing the PWA is optional; browser installation controls can add it to the home screen or desktop. Browser support and installation UI vary.
+
+Builds generate a cache version from all application files. An update downloads into a new cache and waits for existing app tabs/windows to close before activation. Reopen to receive it. This keeps an open engine and interface on the same version. A failed cache installation does not replace the working version. `sw.js` should be revalidated (`Cache-Control: no-cache`); the supplied hosts use revalidation for all assets.
+
+During development, close existing tabs or unregister the service worker in browser developer tools when testing a new build. The browser test suite clears its disposable profile's app cache before acceptance checks. Never use a personal Chrome profile for those tests.
+
+Progress belongs to the exact application origin. Moving to another domain or a native app does not transfer it automatically. Existing JSON import/export transfers circuits. Browser storage can be cleared by the user or operating system; keep exports for circuits you want to retain.
 
 ## Container
 
-From the project root:
+The default container compiles WebAssembly, then serves only static files using unprivileged Nginx:
 
 ```sh
 docker build -t circuit-lab:release .
 docker run --rm --name circuit-lab --read-only \
   --tmpfs /tmp:rw,nosuid,noexec,size=64m \
-  -p 127.0.0.1:8000:8000 circuit-lab:release
+  -p 127.0.0.1:8000:8080 circuit-lab:release
 ```
 
-Open `http://127.0.0.1:8000`. The image compiles the engine and runs all native tests during its build. The final image includes only the Python runtime, production server, shared engine, and web assets. It runs as UID/GID 65532 with two synchronous workers; circuit state comes from each request, so instances need no shared session storage or database.
-
-On a managed host that supports Docker, select this directory and its `Dockerfile`, expose port 8000 (or the host's `PORT` value), and set the health-check path to `/api/health`. Keep the web assets and `/api/` endpoints on the same origin.
-
-| Setting | Default | Use |
-| --- | --- | --- |
-| `PORT` | `8000` | HTTP port inside the container |
-| `WEB_CONCURRENCY` | `2` | Worker count; start here and size against the host's CPU/RAM |
-| `FORWARDED_ALLOW_IPS` | `127.0.0.1,::1` | Trusted proxy addresses for forwarded HTTPS scheme |
-
-Use the host's HTTPS endpoint or place an HTTPS reverse proxy in front of Gunicorn. Preserve the original `Host` and send `X-Forwarded-Proto: https`. Set `FORWARDED_ALLOW_IPS` to that proxy's addresses. A managed private-ingress service may need `*`; use that only when clients cannot reach Gunicorn directly and the platform replaces forwarded headers. Correct forwarding matters because API POSTs check the browser's Origin against the request's scheme and host.
-
-The application bounds request bodies to 1 MB, requires JSON POSTs, and validates arguments before calling the native library. Workers time out at 25 seconds; browser requests time out at 30 seconds. Assets use conditional caching and gzip, and the catalog is prepared once per worker. No circuit data is written to the server. The platform can retain standard access logs; those do not include request bodies in the supplied configuration.
-
-## Without Docker
-
-On a Linux host with Python 3.10+, CMake, Make, and a C++17 compiler:
-
-```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel 4
-ctest --test-dir build --output-on-failure
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-.venv/bin/gunicorn --config deploy/gunicorn.conf.py 'server.app:create_app()'
-```
-
-Run that command under the hosting platform's process manager and HTTPS proxy. Production startup loads the existing library; it never builds code at request time. `serve.py` remains the local development launcher.
+On a container host, expose container port **8080** and use `/` as the health check. Use the host's HTTPS endpoint or an HTTPS reverse proxy. The final image contains no compiler, Python runtime, or circuit API. The web server logs ordinary asset requests.
 
 ## Verify a deployment
 
 ```sh
 python3 scripts/smoke.py http://127.0.0.1:8000
-# After choosing and deploying to your host:
-python3 scripts/smoke.py https://your-domain.example
+python3 scripts/smoke.py https://your-domain.example/circuit-lab
 ```
 
-The smoke check loads the page and catalog, checks live signals, and runs every reference lesson through the deployed C++ engine. It also sends the same Origin header as a browser, catching incorrect HTTPS proxy configuration. It creates no accounts and changes no saved player data.
+The smoke check verifies the page, manifest, JavaScript/WebAssembly content types, binary signature, and every offline asset. It does not execute the engine; native/WebAssembly parity and browser execution are checked by:
 
-Then open the actual HTTPS address on desktop and phone. Confirm that the first-visit handbook opens, a wire lights the first bulb, Check circuit passes, and reload preserves progress. Browser storage belongs to the exact origin: a localhost, preview, and production URL each have separate saves. Export circuits before moving between them.
+```sh
+python3 -m unittest discover -s tests -p 'test_*.py' -v
+node tests/engine-client.mjs
+node tests/browser.mjs http://127.0.0.1:8000 http://127.0.0.1:18438
+node tests/wasm-browser.mjs http://127.0.0.1:18438
+```
+
+Build the native library before the Python tests. Start disposable headless Chrome as documented in the README. The offline test serves the application from a subdirectory, stops its server, reloads the page, and checks all 24 lessons through the real worker. Run browser suites sequentially.
+
+Finally open the deployed HTTPS address on actual target devices. Check installation, offline restart, wiring, background/resume, import/export, and memory clock steps. Physical iOS/Android devices and Safari/Firefox require separate validation.
+
+## Optional native HTTP service
+
+The C++/Python API in `src/server/` remains for integrations and native transport tests. The launcher imports it only with `--native-api`; normal web play uses the static bundle independently:
+
+```sh
+python3 serve.py --native-api --port 8001
+python3 scripts/smoke.py http://127.0.0.1:8001 --native-api
+```
+
+For production API hosting, `requirements.txt` and `deploy/gunicorn.conf.py` configure Gunicorn, with `src.server.app:create_app()` as its application entry point from the repository root. `docker build -f deploy/Dockerfile.native -t circuit-lab:native-api .` builds the optional API image, which listens on port 8000. It is an API service; the portable game should be deployed from the separate static build. The native service can also serve a prebuilt `dist/app` when that directory is present.
+
+Native HTTP requests remain bounded, use explicit memory state, and enforce same-origin browser requests. Keep the API behind HTTPS, set `PORT`/`WEB_CONCURRENCY` as needed, and set `FORWARDED_ALLOW_IPS` to the trusted proxy addresses. The shared web application never switches to this API automatically.
 
 ## Source release
 
@@ -60,10 +89,4 @@ Then open the actual HTTPS address on desktop and phone. Confirm that the first-
 python3 scripts/package_release.py
 ```
 
-This writes `dist/circuit-lab-1.0.0.tar.gz` and its SHA-256 checksum. It packages explicit source directories and the bundled font licenses, excluding build output, virtual environments, screenshots from test runs, caches, local tool metadata, and user data. Repeated packaging of the same files produces the same archive bytes. Extract it, then use the same Docker or native commands above.
-
-For updates, build a new image, pass the smoke check, then replace the running instance. Keep the previous image for rollback. No database migration is needed. Preserve the existing storage keys and stable lesson IDs when changing the curriculum.
-
-## Publication status
-
-The project includes a tested release configuration and source package. No public host, domain, or hosting credentials have been supplied, and no public deployment has been made. Hosting account selection and the final HTTPS smoke check remain the publication steps. Downloadable/mobile packaging and device-specific performance tuning are later work.
+The source archive includes the engine, shared UI sources, tests, deployment files, scripts, and licenses. It excludes `dist`, compiled binaries, compiler caches, virtual environments, and local data. Recipients build their own `dist/app`. No host, domain, or app-store publication is performed by packaging.

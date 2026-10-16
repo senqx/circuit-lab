@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import {routeWire,createWireRouter,crosses} from '../web/wire-router.mjs';
-import {BLOCK_SIZE,portPoint,snapPosition} from '../web/board-geometry.mjs';
+import {routeWire,createWireRouter,crosses} from '../src/ui/wire-router.mjs';
+import {BLOCK_SIZE,portPoint,snapPosition} from '../src/ui/board-geometry.mjs';
 const rect=(id,x,y,w=120,h=90)=>({id,x,y,w,h});
 let checks=0;
 function verify(a,b,boxes,label,route=routeWire(a,b,boxes)) {

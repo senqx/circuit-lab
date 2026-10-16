@@ -6,13 +6,9 @@ import mimetypes
 from http import HTTPStatus
 from urllib.parse import urlsplit
 
+from ..http_headers import SECURITY_HEADERS
 from .engine import ROOT, execute, integer, load_engine
 
-SECURITY_HEADERS = [
-    ("X-Content-Type-Options", "nosniff"),
-    ("Referrer-Policy", "same-origin"),
-    ("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"),
-]
 MAX_BODY = 1_000_000
 
 
@@ -26,13 +22,13 @@ def create_app(lib=None):
         etag = 'W/"' + hashlib.sha256(body).hexdigest() + '"'
         assets[route] = (body, gzip.compress(body, mtime=0), content_type, etag, cache)
 
-    web = ROOT / "web"
-    for path in web.rglob("*"):
-        if path.is_file() and not any(p.startswith(".") for p in path.relative_to(web).parts):
-            content_type = "text/javascript" if path.suffix in (".js", ".mjs") else mimetypes.guess_type(path.name)[0] or "application/octet-stream"
-            asset("/" + path.relative_to(web).as_posix(), path.read_bytes(), content_type)
+    public_dir = ROOT / "dist" / "app" if (ROOT / "dist" / "app").is_dir() else ROOT / "src" / "ui"
+    for path in public_dir.rglob("*"):
+        if path.is_file() and not any(p.startswith(".") for p in path.relative_to(public_dir).parts):
+            content_type = {".js": "text/javascript", ".mjs": "text/javascript", ".wasm": "application/wasm", ".webmanifest": "application/manifest+json"}.get(path.suffix) or mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+            asset("/" + path.relative_to(public_dir).as_posix(), path.read_bytes(), content_type)
     assets["/"] = assets["/index.html"]
-    catalog = lib.sg_catalog()
+    catalog = lib.circuit_catalog()
     if "error" in json.loads(catalog):
         raise RuntimeError("The engine catalog could not be loaded.")
     asset("/api/catalog", catalog, "application/json; charset=utf-8", "no-store")
@@ -77,7 +73,7 @@ def create_app(lib=None):
             return respond({"status": "ok"})
         if route.startswith("/api/reference/"):
             try:
-                return respond(lib.sg_reference(integer(int(route.rsplit("/", 1)[1]))))
+                return respond(lib.circuit_reference(integer(int(route.rsplit("/", 1)[1]))))
             except (ValueError, TypeError):
                 return error("Invalid lesson.")
         origin = environ.get("HTTP_ORIGIN")

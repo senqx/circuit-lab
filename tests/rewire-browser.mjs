@@ -29,12 +29,12 @@ export async function rewireChecks({send,js,wait,assert,click,key,screenshot}) {
   const saved="JSON.parse(localStorage.getItem('signal-garden-v2:circuit:sandbox')).circuit";
   const connected=(from,to,input=0)=>`[...document.querySelectorAll('[data-wire]')].some(e=>e.dataset.key==='${from}:0:${to}:${input}')`;
   const origin=await point(50),blank=await js("(()=>{const r=document.getElementById('canvas').getBoundingClientRect();return {x:r.left+25,y:r.top+25}})()");
-  await js(`window.__rewireRequests=0;window.__rewireFetch=window.fetch;
-    window.fetch=(...args)=>{if(String(args[0]).includes('/simulate'))window.__rewireRequests++;return window.__rewireFetch(...args)};
+  await js(`(async()=>{window.__engine=(await import(new URL('engine/client.mjs',document.baseURI))).engine;window.__rewireRequests=0;window.__rewireRequest=window.__engine.request.bind(window.__engine);
+    window.__engine.request=(...args)=>{if(args[0]==='simulate')window.__rewireRequests++;return window.__rewireRequest(...args)};
     window.__originalWire=document.querySelector('[data-wire="0"]');
     window.__originalPaths=[...document.querySelectorAll('.wire')].map(e=>e.getAttribute('d'));
     window.__originalNodes=[...document.querySelectorAll('#nodes>.node')];
-    window.__flowCount=document.querySelectorAll('.flow-dot').length;`);
+    window.__flowCount=document.querySelectorAll('.flow-dot').length;})()`);
 
   await press(origin);await move(blank);
   await assert("getComputedStyle(window.__originalWire).visibility==='hidden' && document.querySelector('.wire-preview') && document.querySelector('[data-pin=\"1:0:1\"]').classList.contains('pending')",'Dragging the bulb connector lifts that wire end while keeping its source fixed');
@@ -125,5 +125,5 @@ export async function rewireChecks({send,js,wait,assert,click,key,screenshot}) {
   await assert(`${connected(1,52)} && !(${connected(1,50)})`,'Touch dragging reroutes a bulb connection on a phone');
   await send('Emulation.setTouchEmulationEnabled',{enabled:false});
   await send('Emulation.setDeviceMetricsOverride',{width:1512,height:982,deviceScaleFactor:1,mobile:false});
-  await js('window.scrollTo(0,0);window.fetch=window.__rewireFetch');await click('#fit-button');
+  await js('window.scrollTo(0,0);window.__engine.request=window.__rewireRequest');await click('#fit-button');
 }
