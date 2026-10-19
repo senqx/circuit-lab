@@ -87,7 +87,7 @@ export async function curriculumChecks({send,js,wait,assert,click,screenshot}) {
   await assert(`!${record} && document.querySelector('[data-forward]').textContent.includes('Skip') && !document.getElementById('modal').open`,'Checking a worked example earns neither completion nor a NAND award');
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
   await click('#learn-tab');await click('#learn-panel [data-design-notes]');
-  await assert("document.getElementById('modal').scrollWidth<=document.getElementById('modal').clientWidth && document.querySelectorAll('.book-page').length===2",'Design lessons remain readable in the phone handbook');
+  await assert("document.getElementById('modal').scrollWidth<=document.getElementById('modal').clientWidth && document.querySelectorAll('.book-page').length===1",'Design lessons show one readable page at a time in a narrow handbook');
   await click('[data-guide-spread="0"]');await click('[data-guide-spread="2"]');
   await assert("document.querySelector('.book-index strong').textContent==='Circuit design' && [...document.querySelectorAll('.book-contents button')].every(button=>{const r=button.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth})",'Phone readers can find the crash course directly in the handbook contents');
   await click('#close-guide');

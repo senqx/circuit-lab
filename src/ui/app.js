@@ -25,6 +25,7 @@ const icons = {
   spark:'<path d="m12 2 2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5Z"/>',
   bulb:'<path d="M9 18h6m-6 3h6M8 14a7 7 0 1 1 8 0c-1 1-1 2-1 3H9c0-1 0-2-1-3Z"/>',
   target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+  expectation:'<path d="M9 3a6 6 0 0 0-3.7 10.7C6.5 14.6 7 15.5 7 17h4c0-1.5.5-2.4 1.7-3.3A6 6 0 0 0 9 3ZM7 20h4m-3 2h2"/><circle cx="18" cy="6" r="5" fill="currentColor" stroke="none"/><path class="expectation-question" stroke-width="1.3" d="M16.5 4.5a1.5 1.5 0 1 1 2.5 1.1c-.7.5-1 .8-1 1.4m0 2h.01"/>',
   clock:'<circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/>',
   step:'<path d="m5 5 10 7L5 19Zm14 0v14"/>', close:'<path d="m6 6 12 12M6 18 18 6"/>',
   menu:'<path d="M4 6h16M4 12h16M4 18h16"/>', arrow:'<path d="M4 12h16m-6-6 6 6-6 6"/>',
@@ -40,8 +41,11 @@ const STORAGE='signal-garden-v2';
 let geometryDirty=true, boardFrame=0, cameraDirty=false, explored=false, showInside=false;
 const DEFAULT_ZOOM=.9;
 const TEST_PAGE_SIZE=16;
+// Below this width, the task book would leave too little room for the workbench.
+const taskSheet=matchMedia('(max-width:1000px)');
+let taskOpen=true, taskAnimation=null;
 let hoverWire=null,tracedWire=null,routeOrder=[];
-let hoverPin=null, inventoryActive=false, testPage=0, pinch=null, spaceDown=false;
+let hoverPin=null, inventoryActive=false, testPage=0, expectedPage=0, pinch=null, spaceDown=false;
 const pointers=new Map();
 let showPath=readStorage('path-visible',false);
 let nodeMap=new Map(), incoming=new Map(), nodeElements=new Map(), wireElements=new Map(), obstacleRects=[];
@@ -573,7 +577,7 @@ function loadLevel(id) {
   ++revision;++simTicket;
   toggleJourney(false);
   renderLevel();save();fit();scheduleSimulation();
-  if(matchMedia('(max-width:640px)').matches){window.scrollTo(0,0);$('learning-path').querySelector('[aria-current]')?.scrollIntoView({block:'nearest',inline:'center'});}
+  $('learning-path').querySelector('[aria-current]')?.scrollIntoView({block:'nearest',inline:'center'});
 }
 function renderSidebar() {
   const completed=Object.keys(progress.completed).length;
@@ -607,11 +611,13 @@ function renderLevel() {
   $('check-button').innerHTML=icon(mode==='journey'?'check':'spark')+(mode==='journey'?'Check circuit':'Run circuit');
   $('test-tab').innerHTML=(mode==='journey'&&current.sequential?'Clock trace':'Check results')+' <span id="test-dot"></span>';
   $('test-tab').disabled=mode==='sandbox';
+  $('expected-button').hidden=mode==='sandbox';
   document.title=`${mode==='journey'?current.title:'Free play mode'} — CircuIT Lab`;
   $('clear-button').innerHTML=icon(mode==='journey'?'reset':'trash');
   $('clear-button').title=mode==='journey'?'Reset experiment':'Clear workbench';
   $('clear-button').setAttribute('aria-label',$('clear-button').title);
   renderSidebar();renderParts();renderLearn();renderTest();renderClock();renderBoard();switchTab('learn');
+  setTaskVisible(taskSheet.matches?mode==='journey':taskOpen,false);
   status('A space to experiment. Mistakes welcome.');
 }
 function renderParts() {
@@ -668,15 +674,31 @@ function expectedMarkup() {
 function renderTest() {
   if(mode==='sandbox')return;
   const result=lastResult,rows=result?.rows?.length?result.rows:current.tests;
-  const pages=Math.ceil(rows.length/TEST_PAGE_SIZE);
-  testPage=Math.min(testPage,Math.max(0,pages-1));
-  const page=rows.slice(testPage*TEST_PAGE_SIZE,(testPage+1)*TEST_PAGE_SIZE);
+  testPage=Math.min(testPage,Math.max(0,Math.ceil(rows.length/TEST_PAGE_SIZE)-1));
   const banner=result?`<div class="test-badge ${result.passed?'success':'failure'}">${result.passed?`✓ ${result.correct} of ${result.total} checks passed.`:esc(result.error||'Keep experimenting.')} ${!result.passed&&result.total?`(${result.correct}/${result.total} passed)`:''}</div>`:'';
-  $('test-panel').innerHTML=`<div class="test-intro"><h2>${current.sequential?'Expected sequence':'Expected results'}</h2><p>${current.sequential?'Each row continues from the previous memory state. ↦ = clock step; – = no clock.':'Compare your circuit with these expected outputs. Click a row to try its input combination.'}</p></div>${banner}${result?challengeMarkup(result):''}${tableMarkup(page,!!result?.rows?.length)}${pages>1?`<nav class="table-paging" aria-label="Test cases"><button data-test-page="${testPage-1}" ${testPage===0?'disabled':''}>← Previous rows</button><span>${testPage+1} / ${pages}</span><button data-test-page="${testPage+1}" ${testPage===pages-1?'disabled':''}>Next rows →</button></nav>`:''}<p class="test-note">${current.testCount} ${current.sequential?'steps in order · memory begins at 0':'input combinations checked'}.</p><p class="test-note">? = unknown or unwired · Z = high impedance · ! = conflicting drivers</p>`;
+  $('test-panel').innerHTML=`<div class="test-intro"><h2>${current.sequential?'Expected sequence':'Check results'}</h2><p>${expectationInstructions()}</p></div>${banner}${result?challengeMarkup(result):''}${casesMarkup(rows,testPage,!!result?.rows?.length)}<p class="test-note">? = unknown or unwired · Z = high impedance · ! = conflicting drivers</p>`;
+}
+function expectationInstructions() {
+  return current.sequential?'Each row continues from the previous memory state. ↦ = clock step; – = no clock.':'Click a row to set its inputs and watch your circuit. These are the outputs to aim for.';
+}
+function casesMarkup(rows,page,actual=false) {
+  const pages=Math.ceil(rows.length/TEST_PAGE_SIZE);
+  return `${tableMarkup(rows.slice(page*TEST_PAGE_SIZE,(page+1)*TEST_PAGE_SIZE),actual)}${pages>1?`<nav class="table-paging" aria-label="Test cases"><button data-test-page="${page-1}" ${page===0?'disabled':''}>← Previous rows</button><span>${page+1} / ${pages}</span><button data-test-page="${page+1}" ${page===pages-1?'disabled':''}>Next rows →</button></nav>`:''}<p class="test-note">${current.testCount} ${current.sequential?'steps in order · memory begins at 0':'input combinations'}.</p>`;
+}
+function renderExpected() {
+  $('expected-panel').innerHTML=`<p class="expected-lesson">${esc(current.title)}</p><p class="test-intro">${expectationInstructions()}</p>${casesMarkup(current.tests,expectedPage)}`;
+}
+function showExpected() {
+  cancelGesture();expectedPage=0;renderExpected();
+  $('expected-dialog').showModal();$('expected-panel').scrollTop=0;
+  $('expected-button').setAttribute('aria-expanded','true');
 }
 function tryTableRow(event) {
   const el=event.target.closest('[data-inputs]');if(!el)return;
+  const fromExpected=$('expected-dialog').contains(el);
   inputs=JSON.parse(el.dataset.inputs);explored=true;save();updateSignals();renderTest();scheduleSimulation();
+  if(fromExpected)$('expected-dialog').close();
+  if(taskSheet.matches||fromExpected){returnToBoard();toast(`Inputs set to ${inputs.join(', ')}. Watch the circuit respond.`);}
 }
 function renderClock() {
   const hasMemory=mode==='sandbox'?graph.nodes.some(n=>parts[n.kind]?.sequential):current.sequential;
@@ -762,7 +784,7 @@ async function checkCircuit() {
     const r=await engine.request('check',{circuit:graph,level:id});
     if(rev!==revision)return;
     lastResult=r;testPage=Math.max(0,Math.floor((r.rows||[]).findIndex(row=>!row.passed)/TEST_PAGE_SIZE));
-    setTaskVisible(true);renderTest();renderGuidance();switchTab('test');
+    renderTest();renderGuidance();openTask('test');
     if(r.passed) {
       if(practice){toast('The worked circuit passes every check. Start fresh when you’re ready to build it.','success');return;}
       const record={...progress.completed[id],parts:graph.nodes.filter(n=>!terminal(n)).length};
@@ -790,28 +812,39 @@ function showSkip() {
   const next=nextLevel()?.id||'sandbox';
   modal(`<span class="lesson-tag">COME BACK WITH FRESH EYES</span><h2>Skip this experiment?</h2><p class="skip-message">${skipMessages[index]}</p><p class="skip-note">Your circuit stays saved, and this experiment stays unfinished. Previous or Your journey will bring you back.</p><div class="modal-actions"><button id="keep-trying" class="button primary">Keep trying</button><button id="skip-hint" class="button" ${hints>=current.hints.length?'disabled':''}>Get a hint</button><button id="confirm-skip" class="text-button">Skip for now →</button></div>`, 'skip');
   $('keep-trying').onclick=()=>$('modal').close();
-  $('skip-hint').onclick=()=>{$('modal').close();setTaskVisible(true);switchTab('learn');revealHint();};
+  $('skip-hint').onclick=()=>{$('modal').close();openTask('learn');revealHint();};
   $('confirm-skip').onclick=()=>{$('modal').close();loadLevel(next);};
   $('keep-trying').focus();
 }
 function showCompletion(r) {
   const s=parts[current.target],next=nextLevel();
   modal(`<div class="completion-icon">${icon(current.id===catalog.levels.length?'leaf':'check')}</div><span class="lesson-tag" style="margin-top:22px">${current.id===catalog.levels.length?'FROM A SPARK TO A COMPUTER':'ANOTHER DISCOVERY MADE'}</span><h2>${current.id===catalog.levels.length?'You built a computer.':'You made it work.'}</h2><p>${current.id===catalog.levels.length?'From sending your first message to a working instruction-driven processor. That whole journey is here, in your circuit. Keep exploring in free play.':`Your ${esc(s.name.toLowerCase())} works. Every ${current.sequential?'step in the test sequence':'input combination'} passed. Take a moment — you made this.`}</p><div class="completion-stats"><div><strong>${r.total}</strong><span>checks passed</span></div><div><strong>${graph.nodes.filter(n=>!terminal(n)).length}</strong><span>blocks on board</span></div><div><strong>${Object.keys(progress.completed).length}/${catalog.levels.length}</strong><span>ideas discovered</span></div></div>${challengeMarkup(r)}<div class="chip-unlock"><span class="chip-symbol">${esc(s.symbol)}</span><div><strong>Your new building block</strong><p>${esc(s.name)} is ready for bigger ideas.</p></div></div><div class="modal-actions"><button id="next-lesson" class="button primary">${next?`Next: ${esc(next.title)}`:'Explore free play'} ${icon('arrow')}</button><button id="stay-button" class="button">${r.nandChallenge&&!r.nandChallenge.achieved?'Try the NAND challenge':'Review my circuit'}</button></div>`);
-  $('next-lesson').onclick=()=>{$('modal').close();loadLevel(next?next.id:'sandbox');};$('stay-button').onclick=()=>$('modal').close();
+  $('next-lesson').onclick=()=>{$('modal').close();loadLevel(next?next.id:'sandbox');};$('stay-button').onclick=()=>{$('modal').close();if(taskSheet.matches)returnToBoard();};
 }
-let guideSpread=0, guideTurning=false;
-function showGuide(page=guideSpread) {
-  guideSpread=typeof page==='number'?Math.max(0,Math.min(handbookSpreads.length-1,page)):guideSpread;
-  const spread=handbookSpreads[guideSpread],totalPages=handbookSpreads.length*2;
+const singleGuidePage=matchMedia('(max-width:760px)');
+const handbookPages=handbookSpreads.flatMap(spread=>spread.pages);
+let guidePage=0, guideTurning=false;
+const guideStep=()=>singleGuidePage.matches?1:2;
+const guideStart=()=>guidePage-guidePage%guideStep();
+const guideNeighbour=direction=>guideStart()+direction*guideStep();
+function showGuide(page=guidePage) {
+  guidePage=Math.max(0,Math.min(handbookPages.length-1,page));
+  const start=guideStart(),count=guideStep(),spreadIndex=Math.floor(start/2);
+  const spread=handbookSpreads[spreadIndex],totalPages=handbookPages.length;
+  const previous=guideNeighbour(-1),next=guideNeighbour(1);
+  const neighbourTitle=index=>singleGuidePage.matches
+    ? handbookPages[index]?.title.replace(/<br\s*\/?\s*>/g,' ')
+    : handbookSpreads[Math.floor(index/2)]?.title;
+  const previousTitle=neighbourTitle(previous)||'First page',nextTitle=neighbourTitle(next)||'Last page';
   const turnArrow=`<svg viewBox="0 0 64 40" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 30C9 7 51 6 51 28m-10-7 10 9 9-11"/></svg>`;
-  modal(`<div class="book-index"><span>LAB HANDBOOK</span><strong>${spread.title}</strong><nav class="book-contents" aria-label="Handbook contents">${handbookSpreads.map((item,i)=>`<button data-guide-spread="${i}" ${i===guideSpread?'aria-current="page"':''} ${guideTurning?'disabled':''}>${item.title}</button>`).join('')}</nav></div>
-    <div id="book-spread" class="book-spread">${spread.pages.map((page,i)=>`<article class="book-page"><span class="book-eyebrow">PAGE ${String(guideSpread*2+i+1).padStart(2,'0')} / ${totalPages}</span><h2>${page.title}</h2>${page.body}</article>`).join('')}</div>
-    <div class="book-footer handbook-footer"><button id="guide-previous" class="page-turn previous" ${guideSpread===0||guideTurning?'disabled':''} aria-label="Previous pages: ${handbookSpreads[guideSpread-1]?.title||'beginning'}">${turnArrow}<span>${handbookSpreads[guideSpread-1]?.title||'First pages'}</span></button><div class="book-return"><span aria-live="polite">${guideSpread*2+1}–${guideSpread*2+2} / ${totalPages}</span><button id="close-guide" class="${readStorage('welcome',false)?'text-button':'button primary'}">${readStorage('welcome',false)?'Back to experiment':'Start building'}</button><button id="guide-home" class="text-button" ${guideSpread===0?'hidden':''}>How to play</button></div><button id="guide-next" class="page-turn next" ${guideSpread===handbookSpreads.length-1||guideTurning?'disabled':''} aria-label="Next pages: ${handbookSpreads[guideSpread+1]?.title||'end'}">${turnArrow}<span>${handbookSpreads[guideSpread+1]?.title||'Last pages'}</span></button></div>`, 'handbook');
+  modal(`<div class="book-index"><span>LAB HANDBOOK</span><strong>${spread.title}</strong><nav class="book-contents" aria-label="Handbook contents">${handbookSpreads.map((item,i)=>`<button data-guide-spread="${i}" ${i===spreadIndex?'aria-current="page"':''} ${guideTurning?'disabled':''}>${item.title}</button>`).join('')}</nav></div>
+    <div id="book-spread" class="book-spread">${handbookPages.slice(start,start+count).map((page,i)=>`<article class="book-page"><span class="book-eyebrow">PAGE ${String(start+i+1).padStart(2,'0')} / ${totalPages}</span><h2>${page.title}</h2>${page.body}</article>`).join('')}</div>
+    <div class="book-footer handbook-footer"><button id="guide-previous" class="page-turn previous" ${previous<0||guideTurning?'disabled':''} aria-label="Previous ${count===1?'page':'pages'}: ${esc(previousTitle)}">${turnArrow}<span>${esc(previousTitle)}</span></button><div class="book-return"><span aria-live="polite">${start+1}${count===2?'–'+Math.min(start+count,totalPages):''} / ${totalPages}</span><button id="close-guide" class="${readStorage('welcome',false)?'text-button':'button primary'}">${readStorage('welcome',false)?'Back to experiment':'Start building'}</button><button id="guide-home" class="text-button" ${start===0?'hidden':''}>How to play</button></div><button id="guide-next" class="page-turn next" ${next>=totalPages||guideTurning?'disabled':''} aria-label="Next ${count===1?'page':'pages'}: ${esc(nextTitle)}">${turnArrow}<span>${esc(nextTitle)}</span></button></div>`, 'handbook');
   $('guide-previous').onclick=()=>turnGuide(-1);
   $('guide-next').onclick=()=>turnGuide(1);
   document.querySelectorAll('[data-guide-spread]').forEach(button=>button.onclick=()=>{
     if(guideTurning)return;
-    showGuide(Number(button.dataset.guideSpread));
+    showGuide(Number(button.dataset.guideSpread)*2);
     document.querySelector('.book-contents [aria-current="page"]').focus({preventScroll:true});
   });
   $('modal').scrollTop=0;
@@ -819,12 +852,12 @@ function showGuide(page=guideSpread) {
   $('guide-home').onclick=()=>showGuide(0);
 }
 async function turnGuide(direction) {
-  const next=guideSpread+direction;
-  if(guideTurning||next<0||next>=handbookSpreads.length)return;
-  const dialog=$('modal'),spread=$('book-spread'),singleColumn=matchMedia('(max-width:640px)').matches;
+  const next=guideNeighbour(direction);
+  if(guideTurning||next<0||next>=handbookPages.length)return;
+  const dialog=$('modal'),spread=$('book-spread'),singleColumn=singleGuidePage.matches;
   const focusArrow=()=>{
     if(dialog.open&&dialog.dataset.kind==='handbook')
-      $(guideSpread===0?'guide-next':guideSpread===handbookSpreads.length-1?'guide-previous':direction>0?'guide-next':'guide-previous')?.focus({preventScroll:true});
+      $(guideNeighbour(-1)<0?'guide-next':guideNeighbour(1)>=handbookPages.length?'guide-previous':direction>0?'guide-next':'guide-previous')?.focus({preventScroll:true});
   };
   if(matchMedia('(prefers-reduced-motion: reduce)').matches){showGuide(next);focusArrow();return;}
   guideTurning=true;dialog.dataset.turning='true';
@@ -832,33 +865,67 @@ async function turnGuide(direction) {
   document.querySelectorAll('[data-guide-spread]').forEach(button=>button.disabled=true);
   let animation;
   try {
-    // Fold the outgoing leaf to the spine, then open its other side.
-    const outgoing=singleColumn?spread:spread.children[direction>0?1:0];
+    // Single pages slide gently; two-page spreads turn around their spine.
+    const outgoing=spread.children[singleColumn?0:direction>0?1:0];
     outgoing.style.transformOrigin=direction>0?'left center':'right center';
-    animation=outgoing.animate([{transform:'rotateY(0deg)'},{transform:`rotateY(${-direction*90}deg)`}],{duration:170,easing:'ease-in',fill:'forwards'});
+    animation=outgoing.animate(singleColumn
+      ? [{transform:'translateX(0)',opacity:1},{transform:`translateX(${-direction*24}px)`,opacity:0}]
+      : [{transform:'rotateY(0deg)'},{transform:`rotateY(${-direction*90}deg)`}],{duration:singleColumn?110:170,easing:'ease-in',fill:'forwards'});
     await animation.finished;
     if(!dialog.open||!spread.isConnected)return;
     showGuide(next);
-    const incoming=singleColumn?$('book-spread'):$('book-spread').children[direction>0?0:1];
+    const incoming=$('book-spread').children[singleColumn?0:direction>0?0:1];
     incoming.style.transformOrigin=direction>0?'right center':'left center';
-    animation=incoming.animate([{transform:`rotateY(${direction*90}deg)`},{transform:'rotateY(0deg)'}],{duration:190,easing:'ease-out'});
+    animation=incoming.animate(singleColumn
+      ? [{transform:`translateX(${direction*24}px)`,opacity:0},{transform:'translateX(0)',opacity:1}]
+      : [{transform:`rotateY(${direction*90}deg)`},{transform:'rotateY(0deg)'}],{duration:singleColumn?150:190,easing:'ease-out'});
     await animation.finished;
   } catch { /* Closing the handbook cancels its animation. */ }
   finally {
     animation?.cancel();guideTurning=false;delete dialog.dataset.turning;
-    if($('guide-previous'))$('guide-previous').disabled=guideSpread===0;
-    if($('guide-next'))$('guide-next').disabled=guideSpread===handbookSpreads.length-1;
+    if($('guide-previous'))$('guide-previous').disabled=guideNeighbour(-1)<0;
+    if($('guide-next'))$('guide-next').disabled=guideNeighbour(1)>=handbookPages.length;
     document.querySelectorAll('[data-guide-spread]').forEach(button=>button.disabled=false);
     focusArrow();
   }
 }
 
-function setTaskVisible(visible) {
+function setTaskVisible(visible,animate=true) {
+  const panel=$('inspector'),changed=visible!==taskOpen,hadFocus=panel.contains(document.activeElement);
+  const toggle=$('task-toggle'),compact=taskSheet.matches,toggleFocused=document.activeElement===toggle;
+  taskAnimation?.cancel();taskAnimation=null;
+  taskOpen=visible;
   document.body.classList.toggle('task-hidden',!visible);
-  $('inspector').hidden=!visible;
-  $('task-toggle').setAttribute('aria-expanded',String(visible));
-  $('task-toggle').innerHTML=icon('panel')+`<span>${visible?'Hide task':'Show task'}</span>`;
+  panel.hidden=!visible;panel.inert=!visible;
+  $('task-scrim').hidden=!taskSheet.matches||!visible;
+  document.querySelector('.workbench').inert=taskSheet.matches&&visible;
+  const taskLabel=icon('book')+`<span class="task-toggle-label"><span>${mode==='journey'?`Task · ${lessonNumber()} / ${catalog.levels.length}`:'Free play mode'}</span><strong>${esc(mode==='journey'?current.title:'Your workspace')}</strong></span>`;
+  toggle.setAttribute('aria-expanded',String(visible));
+  toggle.hidden=compact&&visible;
+  $('task-label').hidden=!compact||!visible;
+  $('task-label').innerHTML=taskLabel;
+  toggle.innerHTML=compact
+    ? taskLabel+'<span class="task-chevron" aria-hidden="true">⌃</span>'
+    : icon('panel')+`<span>${visible?'Hide task':'Show task'}</span>`;
+  toggle.setAttribute('aria-label',`${visible&&!compact?'Hide':'Show'} ${mode==='journey'?'task: '+current.title:'workspace notes'}`);
+  if(changed&&taskSheet.matches&&animate&&!matchMedia('(prefers-reduced-motion:reduce)').matches){
+    panel.hidden=false;
+    const frames=[{transform:'translateY(calc(100% + 8px))',opacity:0},{transform:'translateY(0)',opacity:1}];
+    const animation=panel.animate(visible?frames:frames.reverse(),{duration:180,easing:'ease-out'});
+    taskAnimation=animation;
+    animation.finished.then(()=>{panel.hidden=!taskOpen;if(taskAnimation===animation)taskAnimation=null;}).catch(()=>{});
+  }
+  if(!visible&&hadFocus)toggle.focus({preventScroll:true});
+  if(visible&&compact&&toggleFocused)$('lesson-title').focus({preventScroll:true});
   applyCamera();
+}
+function openTask(tab='learn') {
+  cancelGesture();switchTab(tab);setTaskVisible(true);
+  if(taskSheet.matches)$(tab==='learn'?'lesson-title':'test-tab').focus({preventScroll:true});
+}
+function returnToBoard() {
+  if(taskSheet.matches)setTaskVisible(false);
+  canvas.focus({preventScroll:true});
 }
 function setPathVisible(visible) {
   showPath=visible;writeStorage('path-visible',visible);renderSidebar();applyCamera();
@@ -869,7 +936,7 @@ function clearBoard() {
   $('confirm-clear').onclick=()=>{
     cancelGesture();remember();graph=lesson?starter():{nodes:[],wires:[]};
     inputs=sortedInputs().map(()=>0);practice=false;selected.clear();pending=null;hints=0;explored=false;
-    changed();renderLearn();fit();$('modal').close();
+    changed();renderLearn();fit();$('modal').close();if(taskSheet.matches)returnToBoard();
   };
   $('cancel-clear').onclick=()=>$('modal').close();
 }
@@ -878,7 +945,7 @@ function showExample() {
   $('cancel-example').onclick=()=>$('modal').close();
   $('load-example').onclick=async()=>{
     const id=current.id,rev=revision;
-    try{const g=await engine.request('reference',{level:id});if(g.error)throw new Error(g.error);if(rev!==revision)return;remember();graph=layout(g);practice=true;selected.clear();pending=null;changed();renderLearn();fit();$('modal').close();toast('Follow a signal through the circuit. Undo returns to your design.');}catch(e){toast(e.message,'error');}
+    try{const g=await engine.request('reference',{level:id});if(g.error)throw new Error(g.error);if(rev!==revision)return;remember();graph=layout(g);practice=true;selected.clear();pending=null;changed();renderLearn();fit();$('modal').close();if(taskSheet.matches)returnToBoard();toast('Follow a signal through the circuit. Undo returns to your design.');}catch(e){toast(e.message,'error');}
   };
 }
 async function exportCircuit() {
@@ -903,7 +970,7 @@ async function importCircuit(file) {
 
 function bindEvents() {
   document.addEventListener('click',event=>{
-    if(event.target.closest('[data-design-notes]'))showGuide(handbookSpreads.findIndex(spread=>spread.id==='design'));
+    if(event.target.closest('[data-design-notes]'))showGuide(handbookSpreads.findIndex(spread=>spread.id==='design')*2);
   });
   const buttons={'undo-button':'undo','redo-button':'redo','arrange-button':'align','export-button':'download','import-button':'upload','clear-button':'trash','delete-button':'trash','fit-button':'fit','flow-button':'arrow'};
   for(const [id,name] of Object.entries(buttons))$(id).innerHTML=icon(name);
@@ -912,7 +979,20 @@ function bindEvents() {
   $('tick-button').innerHTML=icon('step')+'Step clock';
   $('guide-button').innerHTML=icon('book')+'<span>Lab handbook</span>';
   $('guide-button').onclick=()=>showGuide();
-  $('back-to-board').onclick=()=>window.scrollTo({top:0,behavior:'smooth'});
+  $('back-to-board').onclick=returnToBoard;
+  $('task-scrim').onclick=()=>setTaskVisible(false);
+  $('expected-button').innerHTML=icon('expectation')+'<span>Expected results</span>';
+  $('expected-button').onclick=showExpected;
+  $('close-expected').innerHTML=icon('close');
+  $('close-expected').onclick=()=>$('expected-dialog').close();
+  $('expected-done').onclick=()=>{$('expected-dialog').close();returnToBoard();};
+  $('expected-dialog').addEventListener('close',()=>$('expected-button').setAttribute('aria-expanded','false'));
+  singleGuidePage.addEventListener('change',()=>{
+    if($('modal').open&&$('modal').dataset.kind==='handbook'){
+      $('modal').getAnimations({subtree:true}).forEach(animation=>animation.cancel());
+      showGuide();
+    }
+  });
   $('modal').addEventListener('close',()=>{
     if($('modal').dataset.kind==='handbook')writeStorage('welcome',true);
     $('modal').getAnimations({subtree:true}).forEach(animation=>animation.cancel());
@@ -933,11 +1013,10 @@ function bindEvents() {
   $('reset-clock').onclick=()=>{memory={};ticks=0;++revision;renderClock();runSimulation();toast('Memory reset to zero.');};
   $('journey-nav').onclick=()=>toggleJourney();$('sandbox-nav').onclick=()=>loadLevel('sandbox');
   $('close-journey').onclick=()=>toggleJourney(false);$('journey-scrim').onclick=()=>toggleJourney(false);
-  setTaskVisible(true);
   $('task-toggle').onclick=()=>{
-    const visible=$('inspector').hidden;setTaskVisible(visible);
-    if(visible&&matchMedia('(max-width:640px)').matches)$('task-toggle').scrollIntoView({behavior:'smooth',block:'start'});
+    if(taskOpen)setTaskVisible(false);else openTask('learn');
   };
+  taskSheet.addEventListener('change',()=>setTaskVisible(taskOpen,false));
   $('path-toggle').onchange=e=>setPathVisible(e.target.checked);
   $('flow-button').onclick=()=>{const off=$('flow-button').getAttribute('aria-pressed')==='true';$('flow-button').setAttribute('aria-pressed',String(!off));flow.setPaused(off);};
   document.querySelector('.brand').onclick=e=>{e.preventDefault();loadLevel(1);};
@@ -973,16 +1052,17 @@ function bindEvents() {
   });
   $('learn-panel').onclick=e=>{
     if(e.target.closest('[data-inputs]'))tryTableRow(e);
-    if(e.target.closest('[data-all-cases]')){testPage=0;renderTest();switchTab('test');}
+    if(e.target.closest('[data-all-cases]'))showExpected();
     if(e.target.id==='inside-toggle'){showInside=e.target.checked;renderParts();}
     if(e.target.closest('#hint-button'))revealHint();
     if(e.target.closest('#example-button'))showExample();
     if(e.target.closest('#start-fresh'))clearBoard();
   };
   $('test-panel').onclick=e=>{const page=e.target.closest('[data-test-page]');if(page){testPage=Number(page.dataset.testPage);renderTest();}else tryTableRow(e);};
-  for(const panel of [$('learn-panel'),$('test-panel')])panel.onkeydown=e=>{if(e.target.closest('[data-inputs]')&&(e.key==='Enter'||e.key===' ')){e.preventDefault();tryTableRow(e);}};
+  $('expected-panel').onclick=e=>{const page=e.target.closest('[data-test-page]');if(page){expectedPage=Number(page.dataset.testPage);renderExpected();$('expected-panel').scrollTop=0;}else tryTableRow(e);};
+  for(const panel of [$('learn-panel'),$('test-panel'),$('expected-panel')])panel.onkeydown=e=>{if(e.target.closest('[data-inputs]')&&(e.key==='Enter'||e.key===' ')){e.preventDefault();e.stopPropagation();tryTableRow(e);}};
   document.querySelector('.modal-close').onclick=()=>$('modal').close();
-  $('modal').onclick=e=>{if(e.target===$('modal')){const r=$('modal').getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$('modal').close();}};
+  for(const dialog of document.querySelectorAll('dialog'))dialog.onclick=e=>{if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)dialog.close();}};
   $('cancel-gesture').onclick=cancelGesture;
   window.addEventListener('blur',cancelGesture);
   document.addEventListener('contextmenu',e=>{if(pending||inventoryActive||drag){e.preventDefault();e.stopPropagation();cancelGesture();}},true);
@@ -1101,7 +1181,7 @@ function bindEvents() {
   canvas.addEventListener('wheel',e=>{e.preventDefault();zoom(Math.exp(-e.deltaY*.0015),{x:e.clientX,y:e.clientY});},{passive:false});
   document.addEventListener('keyup',e=>{if(e.code==='Space'||e.key===' '){spaceDown=false;canvas.classList.remove('pan-ready');}});
   document.addEventListener('keydown',e=>{
-    if($('modal').open||/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)||e.target.isContentEditable)return;
+    if(document.querySelector('dialog[open]')||/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)||e.target.isContentEditable)return;
     if(e.key==='?' ){e.preventDefault();showGuide();return;}
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();return;}
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();redo();return;}
@@ -1109,8 +1189,10 @@ function bindEvents() {
       e.preventDefault();cancelGesture();selected=new Set([...graph.nodes.map(n=>nodeSelection(n.id)),...graph.wires.map(wireSelection)]);updateSelection();return;
     }
     if(e.key==='Escape'){
+      if(taskSheet.matches&&taskOpen&&!$('journey-sidebar').classList.contains('open')){e.preventDefault();setTaskVisible(false);return;}
       e.preventDefault();toggleJourney(false);const active=pending||drag||inventoryActive;cancelGesture();if(!active)selected.clear();updateSelection();return;
     }
+    if(taskSheet.matches&&taskOpen)return;
     if(e.key.toLowerCase()==='f'&&!e.ctrlKey&&!e.metaKey){e.preventDefault();fit();return;}
     if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();deleteSelected();return;}
     const pinEl=e.target.closest('[data-pin]'),nodeEl=e.target.closest('[data-node]'),toggle=e.target.closest('[data-toggle]'),wire=e.target.closest('[data-wire]');

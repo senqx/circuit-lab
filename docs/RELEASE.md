@@ -1,6 +1,6 @@
 # Release validation — CircuIT Lab
 
-WebAssembly migration, curriculum update, and C++ style refactor validated on 16 October 2026. The first Capacitor Android preview was built and checked on 19 October 2026. The game uses a C++ engine running in a Web Worker on both platforms. No public web deployment or app-store publication was performed. Android test packages are distributed separately as GitHub prereleases.
+WebAssembly migration, curriculum update, and C++ style refactor validated on 16 October 2026. Android beta.1 and the responsive-layout beta.2 were built and checked on 19 October 2026. The game uses a C++ engine running in a Web Worker on both platforms. No public web deployment or app-store publication was performed. Android test packages are distributed separately as GitHub prereleases.
 
 ## Implementation
 
@@ -79,7 +79,7 @@ Physical Android/iOS devices, Safari/Firefox, native WebViews, battery/memory be
 
 Publish the complete static bundle over HTTPS and run the host checks in [DEPLOYMENT.md](DEPLOYMENT.md). Web offline caching requires a successful initial installation. Updates activate after existing app tabs/windows close. Browser and native-app storage are separate; circuit transfer from the Android preview requires the pending native export integration.
 
-## Android preview — 19 October 2026
+## Android beta.1 — 19 October 2026
 
 Capacitor 8.5.3 packages the existing shared UI and WebAssembly worker. Its Java
 activity only extends `BridgeActivity`; no optional native plugins, Rust code,
@@ -130,3 +130,89 @@ system bars, file picking, native Back navigation, lifecycle behavior, and
 updates still need phone testing. See [phone testing instructions](ANDROID.md).
 Native export, Back, and lifecycle integration remain work for the mobile
 release. Temporary browser and game-server processes were stopped after checks.
+
+## Task layout for narrow windows — web validation
+
+The shared UI now keeps Task and Check circuit in a bottom bar when the window
+is 1,000 CSS pixels wide or less, independently of device type or orientation.
+Each lesson opens its task before building. The same
+instruction panel slides above that bar and returns to the board when dismissed.
+Build circuit is a contrasting, full-width button in the panel footer.
+It is the only close button in the compact layout: the bottom title is plain
+text while the task is open, then becomes the reopen button when collapsed.
+Expected results has a bulb with a round question-mark badge beneath the scrolling parts
+list and opens a separate reference sheet, without task tabs or grading feedback.
+A combinational table row sets its inputs and closes that sheet so the player
+can see the result. Clock sequences retain their ordered-step behavior.
+Wide screens keep the instruction book beside the workbench.
+
+The handbook shows one page at a time when the window is 760 CSS pixels wide
+or less. Navigation, neighbouring page titles, and page numbers use individual
+pages, with a short horizontal slide and fade. Wider windows show two-page
+spreads with a page-fold animation. Resizing preserves the
+current page and cancels any in-progress page turn safely.
+
+The full Chrome acceptance suite passed with the rebuilt web bundle. Responsive
+coverage is now part of that suite, including desktop-window resizing from
+320×568 to 1080×1920, the 1000/1001-pixel boundary, a wide 1280×390 window, and
+phone emulation on/off at the same width. Checks cover first-launch guidance,
+saved-circuit reloads, controls without page scrolling, touch and keyboard table
+selection, multibit inputs and pagination, lesson transitions, free-play return,
+rapid panel toggles, and reduced motion. Handbook checks visit all eight pages,
+resize across the 760/761-pixel boundary and during a turn, and verify page
+numbers and accessible return controls. Expectations have independent pagination,
+keyboard dismissal, and no task tabs. Screenshots were inspected. Existing editor,
+wire, import/save, clock, handbook, and curriculum regressions also passed.
+
+Additional first-visit checks run before loading any game page, with browser
+caching enabled and no saved welcome state. The automatic handbook opens one
+page at 360, 700, and 760 pixels, and two at 761 pixels. A cached offline reload
+also opens the welcome handbook on page 1 / 8. The narrow-layout suite passed
+with the slide animation, including all pages, resizing during a turn, and
+reduced motion. An older UI was not reproduced in the rebuilt bundle; an old
+service worker can continue serving a previous build after its server stops.
+
+This change was validated on the web first and is included in Android beta.2.
+The engine and native shell behavior are unchanged.
+
+## Android beta.2 — 19 October 2026
+
+[v1.0.0-beta.2](https://github.com/senqx/circuit-lab/releases/tag/v1.0.0-beta.2)
+packages the responsive task, expected-results, and handbook changes above.
+The application ID remains `io.github.senqx.circuitlab`; the version name is
+`1.0.0-beta.2` and version code is 2. No dependencies or native plugins were added.
+
+| Artifact | Bytes | Size |
+| --- | ---: | ---: |
+| Installable APK, local preview signature | 3,608,099 | 3.44 MiB / 3.61 MB |
+| Unsigned Android App Bundle | 3,430,650 | 3.27 MiB |
+
+Validation completed for this release:
+
+- Rebuilt the shared application with pinned Emscripten 4.0.15. Native release
+  build/CTest, worker client, 100 routing cases, editor geometry, and all nine
+  Python integration tests passed. Native/WebAssembly parity covers 24 lessons
+  and 2,458 cases, including signals, contacts, memory, and invalid-input recovery.
+- The full web acceptance suite and mobile bundle browser suite passed. The
+  mobile entry includes first-launch handbook, task controls, separate expected
+  results, save/reload, service-worker suppression, all lesson checks through
+  the WASM worker, and mouse/keyboard/emulated-touch wiring checks.
+- `assembleRelease`, `bundleRelease`, and `lintRelease` passed. App lint has no
+  errors and the same four warning categories recorded for beta.1; Capacitor
+  retains its upstream lint baseline.
+- All 29 prepared mobile files match the APK and AAB byte for byte. Shared game
+  assets match the web build; the WASM engine is identical to beta.1. Neither
+  package includes native `.so` libraries.
+- APK v2/v3 signatures and ZIP alignment passed. The manifest has the expected
+  application ID, version, minimum SDK 24, target SDK 36, and no debuggable flag.
+  Its signing certificate matches beta.1, allowing an update over that package.
+- Public source scans found no recognizable credential tokens or private keys.
+  Local signing keys, credentials, SDK caches, and generated packages are ignored
+  and excluded from source packaging.
+
+The signed APK and its SHA-256 file are the release downloads. Its SHA-256 is
+`c29caeff67f3c8ffd76699bed5c8cbb139bdf70430e52d06dfe7914ee94b0f9e`.
+Install it over beta.1 to retain local data. This release was checked in Chrome
+and through Android build tools; its installation/upgrade and native WebView
+behavior still need phone testing. Native export, Back, and lifecycle integration
+remain pending. All temporary test browsers and game servers were stopped.

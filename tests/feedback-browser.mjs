@@ -43,11 +43,15 @@ export async function feedbackChecks({send,js,wait,assert,click,key,screenshot})
   await click('#close-journey');
   for(const width of [390,320]) {
     await send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:true});
+    if(await js("document.getElementById('task-toggle').getAttribute('aria-expanded')==='true'"))await click('#back-to-board');
+    await wait("document.getElementById('inspector').hidden");
     await click('#fit-button');await js('window.scrollTo(0,0)');
     await assert("document.documentElement.scrollWidth<=innerWidth && [...document.querySelectorAll('.topbar button,.zoom-controls button')].every(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth})",`Free play navigation and board controls fit a ${width}px phone`);
     await click('#task-toggle');
+    await wait("!document.getElementById('inspector').getAnimations().length");
+    await assert("!document.getElementById('inspector').hidden",`Workspace notes open within a ${width}px phone`);
+    await click('#back-to-board');await wait("document.getElementById('inspector').hidden");
     await assert("document.getElementById('inspector').hidden && document.documentElement.scrollWidth<=innerWidth",`The folded task controls fit a ${width}px phone`);
-    await click('#task-toggle');await js('window.scrollTo(0,0)');
     if(width===320)await screenshot('20-small-phone.png');
   }
   await send('Emulation.setDeviceMetricsOverride',{width:1512,height:982,deviceScaleFactor:1,mobile:false});

@@ -59,15 +59,19 @@ See [deployment instructions](docs/DEPLOYMENT.md) for static hosting, updates, c
 
 ## Android preview
 
-Download Android betas from [GitHub Releases](https://github.com/senqx/circuit-lab/releases). Open the `.apk` asset on your phone to install it; source archives are for developers.
+Download [Android beta.2](https://github.com/senqx/circuit-lab/releases/tag/v1.0.0-beta.2) from GitHub Releases (**3.61 MB**). Open the `.apk` asset on your phone to install it; source archives are for developers. Install it over beta.1 to retain your saved circuits and progress.
 
-The first Android package uses Capacitor 8.5.3 and bundles the same UI and WebAssembly engine for offline play. See [Android setup and phone testing](docs/ANDROID.md) for prerequisites, build commands, installation, and the test checklist. Android development also needs Node.js 22+, JDK 21, and the Android SDK; web development does not.
+The Android package uses Capacitor 8.5.3 and bundles the same UI and WebAssembly engine for offline play. See [Android setup and phone testing](docs/ANDROID.md) for prerequisites, build commands, installation, and the test checklist. Android development also needs Node.js 22+, JDK 21, and the Android SDK; web development does not.
 
 This is a preview for device testing. Native file export, Back navigation, and OS lifecycle integration still need work before a mobile release. iOS packaging comes later. Desktop users can play in the browser or install the PWA; desktop installers are deferred.
 
 ## Learn and experiment
 
 The handbook opens on the first visit. Read the task, place parts from the left tray, connect their dots, change the inputs, and check the circuit against its expected truth table or clock sequence. The interface teaches logic without requiring electrical terminology. Choose **Lab handbook → Circuit design** for a short introduction to Boolean algebra, building from truth tables, and simplifying circuits. The handbook contents link directly to each topic.
+
+When the available window width is 1,000 CSS pixels or less, each experiment opens its task in a panel above the bottom controls. **Build circuit** is its close button; the bottom task title becomes a reopen button once the panel is folded away. **Check circuit** remains visible without scrolling the page. Wider windows keep the task book beside the workbench, regardless of orientation or device type.
+
+**Expected results**, marked by a bulb with a question mark below the parts list, opens a separate reference sheet with the full table. Select a combinational row to set those inputs and return to the board. Checking a circuit shows its grading feedback in the task panel. The handbook displays one page at a time at widths up to 760 CSS pixels, with a sliding transition and individual page numbers; wider windows show two-page spreads with a page-fold animation.
 
 | Chapter | Discoveries |
 | --- | --- |
@@ -176,6 +180,8 @@ node tests/browser.mjs http://127.0.0.1:18437 http://127.0.0.1:18438
 node tests/rendering.mjs http://127.0.0.1:18437 http://127.0.0.1:18438
 node tests/wasm-browser.mjs http://127.0.0.1:18438
 ```
+
+The main browser suite includes desktop-window resizing from 320×568 to 1080×1920, checks on both sides of the layout threshold, phone emulation on/off, visible task/check controls, and touch/keyboard truth-table selection. To run just that group, use `node tests/browser.mjs http://127.0.0.1:18437 http://127.0.0.1:18438 --portrait` with the same disposable browser setup.
 
 Run these suites sequentially because they share a browser tab. The Python suite compares all native/WebAssembly lesson results, internal signals, contacts, and memory when the web build and Node are available. The offline browser suite serves the app under a subdirectory, then stops its server before reloading and checking all lessons. Screenshots and reports go into `test-artifacts/`. For gesture profiling, run `node tests/performance.mjs` with the same two URLs. Frame cadence measures browser scheduling, not guaranteed display performance on every device.
 

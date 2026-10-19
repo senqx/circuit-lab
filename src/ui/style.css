@@ -88,7 +88,12 @@ h1 {font-size:22px;letter-spacing:-.7px;line-height:1.25;font-weight:600}
 .tray-heading {display:flex;flex-direction:column;gap:5px;padding:0 5px}
 .eyebrow {font:9px var(--mono);letter-spacing:1.2px;color:#a2b8c9}
 .tray-heading>span:last-child {font-size:9px;color:#7c97ae}
-.parts-list {display:flex;flex-direction:column;gap:4px;overflow-y:auto;min-height:0;scrollbar-width:thin;scrollbar-color:#4b657c transparent}
+.parts-list {display:flex;flex:1;flex-direction:column;gap:4px;overflow-y:auto;min-height:0;scrollbar-width:thin;scrollbar-color:#4b657c transparent}
+.tray-results {display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;padding:12px 3px 3px;border-top:1px solid #53636b;color:#d7dfca;font-size:11px;line-height:1.4;text-align:center;min-height:62px}
+.tray-results:hover {color:#ffe1a2;background:#354249}
+.tray-results svg {width:24px;height:24px}
+.expectation-question {stroke:var(--bg)}
+.task-scrim {display:none}
 .part-button {display:flex;flex-direction:column;justify-content:center;gap:5px;min-height:69px;padding:9px 4px;border:1px solid transparent;border-radius:4px;background:transparent;position:relative;flex-shrink:0;touch-action:pan-y;cursor:grab;user-select:none}
 .part-button:hover {background:#37454c;border-color:#698593}
 .part-glyph {display:flex;justify-content:center;font:12px var(--mono);color:#b3cbdc;min-width:28px;text-align:center}
@@ -254,6 +259,15 @@ kbd,.keyboard-key {font:9px var(--mono);padding:2px 4px;border:1px solid #3b5064
 .truth-table .expected {color:#456f47}
 .truth-table tr.failed td {background:#dcc5ac;color:#785b3a}
 .test-note {font-size:10px!important;color:#607653!important;margin-top:12px}
+#expected-dialog {padding:0;overflow:hidden}
+#expected-dialog[open] {display:flex;flex-direction:column;max-height:min(85dvh,740px)}
+.expected-heading {display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid #b7bea2;flex-shrink:0;background:#d6dbc3}
+.expected-heading h2 {font-size:21px;margin:0;letter-spacing:-.5px}
+.expected-heading .icon-button {color:#354e38;flex-shrink:0;width:40px;height:40px}
+.expected-content {min-height:0;overflow:auto;overscroll-behavior:contain;padding:18px 20px}
+.expected-lesson {font-weight:600;margin-bottom:6px}
+.expected-footer {padding:10px 20px;border-top:1px solid #b7bea2;flex-shrink:0;background:#d6dbc3}
+.expected-footer .button {width:100%;min-height:44px}
 .toast {position:fixed;bottom:32px;left:50%;transform:translateX(-50%);background:#2c4355;color:#d9e7f0;padding:12px 19px;border:1px solid #5d7a8f;border-radius:7px;box-shadow:0 5px 24px #0005;z-index:60;max-width:min(580px,90vw);font-size:11px;line-height:1.7;pointer-events:none}
 .toast.error {background:#513e38;border-color:#937663;color:#efd3b8}
 .toast.success {background:#2c463e;border-color:#638374;color:#c4dfcc}
@@ -460,32 +474,76 @@ dialog[data-kind=handbook] #modal-content {display:grid;grid-template-columns:1f
   .topbar {height:49px;gap:8px;padding:0 8px}.brand {font-size:15px;gap:6px}.brand img {width:24px;height:24px}
   .topnav {margin-left:auto;gap:0}.nav-link {font-size:10px;padding:7px}.free-mode-button {gap:5px;margin-left:4px}.free-mode-button>span {display:none}#nav-progress {display:none}
   .header-right {margin-left:0}.handbook-button {padding:6px}.handbook-button>span {display:none}
-  main {height:auto;min-height:calc(100dvh - 49px);padding:0 8px}
+  main {height:calc(100dvh - 49px);padding:0 8px}
   .breadcrumb {font-size:7px;margin-bottom:0;letter-spacing:0}
   .lesson-actions .button {font-size:9px;padding:9px}.lesson-actions .button svg {width:12px}
   .learning-path {min-height:44px}.path-stop {flex:none;padding:5px 8px}.path-stop b {font-size:10px}.path-stop>span {width:18px;height:18px}
-  .experiment-nav button {white-space:nowrap}.task-actions {position:relative;z-index:3}.task-actions .lesson-actions {flex-wrap:nowrap}.task-actions .button {font-size:11px;padding:11px}
-  body.task-hidden .task-dock {flex-wrap:wrap}body.task-hidden .task-actions {flex-basis:100%;gap:8px}body.task-hidden .experiment-nav {min-width:0;flex:1}
-  .studio {display:flex;flex-direction:column;flex:initial;overflow:visible}
-  .workbench {height:max(500px,calc(100dvh - 70px));grid-template-columns:66px minmax(0,1fr);grid-template-rows:35px minmax(0,1fr) auto;min-height:0}
-  .canvas-wrap {min-height:380px}.bench-toolbar {padding:0 7px}.tools {gap:0}.tools .icon-button {width:28px}.live-label {font-size:8px;letter-spacing:.7px}
+  .workbench {grid-template-columns:66px minmax(0,1fr);grid-template-rows:35px minmax(0,1fr) auto}
+  .bench-toolbar {padding:0 7px}.tools {gap:0}.tools .icon-button {width:28px}.live-label {font-size:8px;letter-spacing:.7px}
   .parts-tray {padding:11px 4px;gap:10px}.tray-heading {padding:0}.tray-heading>span:last-child {font-size:8px}.eyebrow {font-size:8px}
   .part-button {padding:7px 1px;min-height:65px}.part-name {font-size:8px}.part-glyph svg {width:32px;height:23px}.no-parts {font-size:9px;padding:4px 1px}
-  .task-dock {margin-top:12px}.inspector {min-height:480px}.inspector-content {padding:0 22px 22px;overflow:visible}.inspector .mission-rule {font-size:14px}
-  .inspector-footer {display:block}.inspector-footer .back-to-board {display:block}
   .canvas-bottom {left:8px;right:8px;bottom:9px}.zoom-controls .icon-button {width:23px}.zoom-controls svg {width:12px}#zoom-value {font-size:8px;min-width:31px}
   .selection-tools {top:auto;bottom:43px;right:8px}
-  .workspace-footer {height:auto;min-height:25px;font-size:8px;padding:6px 1px}.footer-shortcut {display:none}
   .clock-bar {padding:7px;gap:5px}.clock-bar>span,.clock-bar>div {gap:5px}.clock-bar strong,.clock-icon {display:none}.clock-bar .button {font-size:9px;padding:6px}
   .journey-sidebar {top:59px;bottom:10px;left:9px;max-width:calc(100% - 18px)}.scrim {top:49px}
   .free-path {gap:10px;min-height:63px}.free-path>span {font-size:8px;line-height:1.6}.return-journey {font-size:10px;flex-shrink:0;padding:9px}
+  dialog {padding:28px 23px}dialog h2 {font-size:24px}
+}
+/* Match singleGuidePage in app.js: a narrow book turns one page at a time. */
+@media(max-width:760px) {
   .book-index {gap:10px;padding:19px 45px 15px 20px;font-size:10px}
   .handbook-footer {gap:8px}.page-turn {max-width:95px}.page-turn svg {width:44px;height:30px}.handbook-footer .book-return {width:auto}.handbook-footer .page-turn span {font-size:9px}
-  .toast {bottom:15px;font-size:11px}dialog {padding:28px 23px}dialog h2 {font-size:24px}
   dialog[data-kind=handbook] #modal-content {grid-template-columns:1fr;perspective:1600px}
   .book-spread {grid-template-columns:1fr;min-height:0}
-  .book-page {padding:26px 25px}.book-page:nth-of-type(2) {border-left:0;border-top:1px solid #b4b79e}
+  .book-page {padding:26px 25px}
   .book-footer {padding:14px 20px;gap:12px;flex-wrap:wrap}.book-footer>span {display:none}.book-footer>div:not(.book-return) {width:100%}.book-footer .button {font-size:11px}.book-page h2 {font-size:30px}
+}
+/* Reserve room for a useful workbench plus the 320px task book. Device type and
+   orientation do not choose the layout; this matches taskSheet in app.js. */
+@media(max-width:1000px) {
+  body {overflow:hidden}
+  main {min-height:0;padding-bottom:max(6px,env(safe-area-inset-bottom))}
+  .studio,body.task-hidden .studio {position:relative;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;gap:8px;overflow:visible;flex:1;min-height:0}
+  .workbench {height:auto;min-height:0}
+  .canvas-wrap {min-height:0}
+  .workspace-footer {display:none}
+  .task-scrim {display:block;position:absolute;inset:0;background:#101a2370;z-index:5;cursor:pointer}
+  .task-dock,body.task-hidden .task-dock {position:relative;z-index:6;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px 10px;background:#d3d5be;border:1px solid #aeb59e;border-radius:7px;padding:7px 9px;min-width:0}
+  .task-panel-bar,body.task-hidden .task-panel-bar {grid-column:1;grid-row:1;min-width:0;padding:0;border:0;background:transparent}
+  .task-panel-bar .breadcrumb {display:none}
+  .panel-toggle {width:100%;min-width:0;min-height:44px;padding:3px 0;border:0;gap:8px;text-align:left;white-space:normal}
+  .task-label {display:flex;align-items:center;gap:8px;width:100%;min-width:0;min-height:44px;color:#405c43}
+  .panel-toggle>svg,.task-label>svg {width:19px;height:19px;flex-shrink:0}
+  .task-toggle-label {display:flex;flex:1;flex-direction:column;gap:3px;min-width:0}
+  .task-toggle-label>span {font-size:10px;font-weight:600;color:#52604c}
+  .task-toggle-label>strong {font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#304c39}
+  .task-chevron {font-size:23px;line-height:1;margin-left:auto}
+  .task-actions,body.task-hidden .task-actions {display:contents}
+  .task-actions .lesson-actions {grid-column:2;grid-row:1;flex-wrap:nowrap}
+  .task-actions .button {min-height:44px;padding:10px 12px;font-size:12px}
+  .experiment-nav,body.task-hidden .experiment-nav {grid-column:1/-1;grid-row:2;min-width:0;border-top:1px solid #b4bca3;padding-top:5px}
+  .experiment-nav button {min-height:32px;padding:5px 9px;font-size:10px;white-space:nowrap}
+  .task-dock .inspector {position:absolute;left:-1px;right:-1px;bottom:calc(100% + 8px);z-index:1;height:min(70dvh,640px);max-height:calc(100dvh - 172px);min-height:0;flex:none;border:1px solid #aeb59e;border-radius:12px;overflow:hidden;box-shadow:0 -6px 26px #07101b40}
+  .task-heading {padding:15px 18px 12px}
+  .task-heading h1 {font-size:23px}
+  .inspector-tabs {min-height:44px;gap:25px}
+  .inspector-tabs button {font-size:12px}
+  .inspector-content {min-height:0;overflow:auto;overscroll-behavior:contain;padding:0 18px 18px}
+  .inspector .mission-rule {font-size:15px}
+  .inspector-footer {display:block;flex-shrink:0;padding:10px 18px;background:#d6d9c3;border-top:1px solid #acb79a}
+  .inspector-footer .button.primary {display:flex;align-items:center;justify-content:center;gap:12px;width:100%;min-height:44px;font-size:13px;font-weight:600;background:#34573e;border-color:#34573e;color:#fff8e6}
+  .inspector-footer .button.primary:hover {background:#264530;color:#fff8e6}
+  .truth-table td,.task-expectation .truth-table td {height:44px;padding:9px 4px}
+  .tray-results {font-size:10px;min-height:64px}
+  .toast {bottom:116px;font-size:11px}
+}
+@media(max-width:1000px) and (max-height:500px) {
+  .task-dock .inspector {height:calc(100dvh - 166px)}
+  .task-heading {padding:8px 15px}.task-heading h1 {font-size:18px;margin:0}
+  #lesson-subtitle {display:none}
+  .inspector-tabs {min-height:35px;height:35px}
+  .parts-tray {gap:5px;padding-top:7px}.tray-heading>span:last-child {display:none}
+  .tray-results {min-height:44px;padding-top:5px;gap:3px}
 }
 @media(prefers-reduced-motion:reduce) {*{scroll-behavior:auto!important}}
 

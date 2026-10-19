@@ -176,6 +176,8 @@ export async function rewireChecks({send,js,wait,assert,click,key,screenshot}) {
   await click('#undo-button');await wait(`${value(54)}==='?'`);
 
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+  if(await js("document.getElementById('task-toggle').getAttribute('aria-expanded')==='true'"))await click('#back-to-board');
+  await wait("document.getElementById('inspector').hidden");
   await click('#fit-button');await js('window.scrollTo(0,0)');
   await send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:2});
   const touchStart=await point(50),touchEnd=await point(52);

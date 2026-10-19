@@ -7,6 +7,7 @@ import {feedbackChecks} from './feedback-browser.mjs';
 import {rewireChecks} from './rewire-browser.mjs';
 import {releaseChecks} from './release-browser.mjs';
 import {curriculumChecks} from './curriculum-browser.mjs';
+import {handbookLaunchChecks,portraitChecks} from './portrait-browser.mjs';
 import path from 'node:path';
 const url=process.argv[2]?.startsWith('http')?process.argv[2]:'http://127.0.0.1:18437';
 const debug=process.argv[3]||'http://127.0.0.1:18438';
@@ -26,12 +27,14 @@ async function choose(id,chapter){
  await click('#journey-nav');
  if(await js(`document.querySelector('[data-level="${id}"]').getClientRects().length===0`))await click(`[data-chapter="${chapter}"]`);
  await click(`[data-level="${id}"]`);
+ if(await js("getComputedStyle(document.getElementById('inspector')).position==='absolute' && !document.getElementById('inspector').hidden")){await click('#back-to-board');await wait("document.getElementById('inspector').hidden");}
 }
-async function example(){await click('#example-button');await click('#load-example');await wait("document.querySelector('.preview-banner')");}
+async function example(){if(await js("document.getElementById('inspector').hidden"))await click('#task-toggle');await click('#example-button');await click('#load-example');await wait("document.querySelector('.preview-banner')");}
 async function reload(ready){await js('window.__oldDocument=true');await send('Page.reload');await wait(`!window.__oldDocument && (${ready})`);}
 async function turnPage(selector){await click(selector);await wait("!document.getElementById('modal').dataset.turning");}
 try {
  await send('Page.enable');await send('Runtime.enable');
+ if(process.argv.length<=4||process.argv.includes('--portrait'))await handbookLaunchChecks({send,js,wait,assert,screenshot,url});
  await send('Storage.clearDataForOrigin',{origin:new URL(url).origin,storageTypes:'service_workers,cache_storage'});
  await send('Network.enable');await send('Network.setCacheDisabled',{cacheDisabled:true});
  await send('Emulation.setDeviceMetricsOverride',{width:1512,height:982,deviceScaleFactor:1,mobile:false});
@@ -41,6 +44,9 @@ try {
    await reload("document.querySelector('[data-shape^=NAND]') && document.body.classList.contains('free-play')");
    await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:setup.identifier});
    await editorChecks({send,js,wait,assert,click,mouse,key,screenshot});
+ } else if(process.argv.includes('--portrait')) {
+   await portraitChecks({send,js,wait,assert,click,key,screenshot});
+   await assert(`${JSON.stringify(errors)}.length===0`,'No browser runtime errors during portrait checks');
  } else if(process.argv.includes('--curriculum')) {
    await curriculumChecks({send,js,wait,assert,click,screenshot});
    await assert(`${JSON.stringify(errors)}.length===0`,'No browser runtime errors during curriculum checks');
@@ -264,12 +270,14 @@ try {
  await choose(14,2);await example();
  await assert("document.querySelector('.task-expectation h2').textContent==='Expected numbers' && document.querySelector('[data-inputs=\"[10,12]\"] .expected').textContent==='8'",'Bus expectations include mixed inputs with decimal results');
  await click('[data-inputs="[10,12]"]');await wait("document.querySelector('[data-node=\"50\"] .terminal-value').textContent==='8'");
- await click('[data-all-cases]');await assert("document.querySelectorAll('#test-panel tbody tr').length===16 && document.querySelector('.test-note').textContent.includes('256')",'Every bus case is available through a paginated table');
- await click('[data-test-page="1"]');await assert("document.querySelector('.table-paging span').textContent==='2 / 16'",'Expected case pages are navigable');
+ await click('[data-all-cases]');await assert("document.querySelectorAll('#expected-panel tbody tr').length===16 && document.querySelector('#expected-panel .test-note').textContent.includes('256') && !document.querySelector('#expected-dialog [role=tab]')",'Every bus case is available through a separate paginated reference');
+ await click('#expected-panel [data-test-page="1"]');await assert("document.querySelector('#expected-panel .table-paging span').textContent==='2 / 16'",'Expected case pages are navigable');
+ await click('#expected-done');
  await pin(1,0,1);await pin(50,0,0);await click('#check-button');await wait("document.querySelector('.test-badge.failure')");
- await assert("document.querySelector('.table-paging span').textContent==='2 / 16' && document.querySelector('#test-panel [data-inputs=\"[1,0]\"]').classList.contains('failed')",'A failed bus check opens the page containing its first mismatch');
+ await assert("document.querySelector('#test-panel .table-paging span').textContent==='2 / 16' && document.querySelector('#test-panel [data-inputs=\"[1,0]\"]').classList.contains('failed')",'A failed bus check opens the page containing its first mismatch');
  await click('#learn-tab');await click('[data-all-cases]');
- await assert("document.querySelector('.table-paging span').textContent==='1 / 16'",'All expected cases remain available after checking a circuit');
+ await assert("document.querySelector('#expected-panel .table-paging span').textContent==='1 / 16' && document.querySelector('#test-panel .table-paging span').textContent==='2 / 16' && !document.querySelector('#expected-dialog .test-badge')",'Expectations stay separate from grading and do not change its results page');
+ await click('#close-expected');
  await choose(15,2);
  await assert("document.getElementById('learn-panel').scrollTop===0",'Changing experiments opens the task at its mission');
  await assert("[...document.querySelector('[data-inputs=\"[15,1,0]\"]').querySelectorAll('.expected')].map(e=>e.textContent).join(',')==='0,1'",'Adder examples explicitly show the wrapped sum and carry');
@@ -337,17 +345,20 @@ try {
  await js("document.getElementById('lesson-list').scrollTop=10000");
  await assert("(()=>{const r=document.getElementById('close-journey').getBoundingClientRect();return r.top>0&&r.bottom<innerHeight&&document.getElementById('journey-sidebar').scrollTop===0})()",'Journey navigation stays visible when its lessons scroll');
  await click('#close-journey');await click('#journey-nav');await screenshot('06-journey-map.png');await click('#close-journey');
- await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});await click('#fit-button');await delay(200);
+ await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+ if(await js("!document.getElementById('inspector').hidden")){await click('#back-to-board');await wait("document.getElementById('inspector').hidden");}
+ await click('#fit-button');await delay(200);
  await assert("document.documentElement.scrollWidth<=innerWidth",'Phone layout has no horizontal overflow');
  await assert("document.getElementById('canvas').getBoundingClientRect().height>=400",'Phone board stays large');
  await click('#guide-button');
  await assert("(()=>{const r=document.getElementById('close-guide').getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight})()",'Phone handbook keeps its return button visible');
- await screenshot('10-mobile-handbook.png');await turnPage('#guide-next');
+ await screenshot('10-mobile-handbook.png');await click('[data-guide-spread="1"]');await turnPage('#guide-next');
  await assert("document.querySelector('.binary-example') && document.getElementById('modal').scrollWidth<=document.getElementById('modal').clientWidth",'Phone handbook turns pages without horizontal overflow');
  await click('#guide-home');await assert("document.querySelector('.book-index strong').textContent==='How to play'",'The phone handbook returns to How to play');await click('#close-guide');
- await click('#task-toggle');await click('#task-toggle');await wait("(()=>{const r=document.getElementById('inspector').getBoundingClientRect();return r.top>=0&&r.top<innerHeight/3})()");
- await assert("!document.getElementById('inspector').hidden",'Phone Task button takes the player to the experiment card');
+ await click('#task-toggle');await wait("(()=>{const r=document.getElementById('inspector').getBoundingClientRect();return r.top>=0&&r.top<innerHeight/3})()");
+ await assert("!document.getElementById('inspector').hidden",'Phone Task button opens the experiment card within the viewport');
  await click('#back-to-board');await wait("scrollY<1");
+ await wait("document.getElementById('inspector').hidden");
  await click('#clear-button');await click('#confirm-clear');
  await assert("document.querySelector('[data-node=\"1\"] rect').getBoundingClientRect().width>85",'Fresh phone discoveries start with readable blocks');
  await pin(1,0,1);await pin(50,0,0);
@@ -420,6 +431,7 @@ try {
  await rewireChecks({send,js,wait,assert,click,key,screenshot});
  await releaseChecks({send,js,wait,assert,click});
  await curriculumChecks({send,js,wait,assert,click,screenshot});
+ await portraitChecks({send,js,wait,assert,click,key,screenshot});
  await assert(`${JSON.stringify(errors)}.length===0`,'No browser runtime errors');
  console.log('Browser acceptance checks passed.');
  }

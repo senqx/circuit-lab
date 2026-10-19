@@ -16,7 +16,13 @@ try {
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   await send('Page.navigate', { url });
   await wait("document.querySelector('[data-node]') && document.getElementById('modal').open");
+  await assert("document.querySelectorAll('.book-page').length===1 && document.querySelector('.book-return [aria-live]').textContent==='1 / 8'", 'The packaged welcome handbook starts with one page on a narrow screen');
   await click('#close-guide');
+  await assert("document.getElementById('task-toggle').hidden && !document.getElementById('task-label').hidden && document.getElementById('back-to-board').getBoundingClientRect().bottom<=innerHeight", 'The packaged task has one visible close action');
+  await click('#back-to-board');await wait("document.getElementById('inspector').hidden");
+  await click('#expected-button');
+  await assert("document.getElementById('expected-dialog').open && !document.querySelector('#expected-dialog [role=tab]') && document.querySelectorAll('#expected-panel tbody tr').length===2", 'Packaged expected results open separately from the task');
+  await click('#expected-done');
   await assert("document.querySelector('script[src=\"native.mjs\"]')", 'The packaged app loads through the native entry');
   await assert("navigator.serviceWorker.getRegistrations().then(items=>items.length===0)", 'Packaged assets do not register the web service worker');
   await assert('document.documentElement.scrollWidth<=innerWidth', 'The mobile bundle fits the phone viewport');
@@ -30,6 +36,7 @@ try {
   await send('Page.reload');
   await wait(`!window.__oldDocument && ${output}==='1'`);
   await assert('!document.getElementById("modal").open', 'The packaged entry restores saved work after reloading');
+  await click('#back-to-board');await wait("document.getElementById('inspector').hidden");
   await click('#export-button');
   await assert("document.getElementById('toast').textContent.includes('not available in this mobile preview')", 'The core-only preview reports unsupported export instead of claiming a file was saved');
 

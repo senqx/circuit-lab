@@ -5,7 +5,7 @@ and C++ engine compiled to WebAssembly. It works from bundled assets, with no
 simulation server, Rust code, Android NDK, or native copy of the circuit engine.
 iOS packaging is the next platform step; desktop users can use the web/PWA.
 
-This is the first package for testing, not an app-store release. It uses the core
+This is a beta for phone testing. It uses the core
 Capacitor shell without optional native plugins. Android's native file picker
 handles the existing HTML import control; that still needs device verification.
 Export explicitly reports that it is unavailable in this preview, because blob
@@ -14,13 +14,16 @@ and file sharing are the next integrations to test and finish.
 
 ## Test the prepared APK on a phone
 
-For a published beta, open [GitHub Releases](https://github.com/senqx/circuit-lab/releases)
+Open [beta.2 on GitHub Releases](https://github.com/senqx/circuit-lab/releases/tag/v1.0.0-beta.2)
 on the phone and download `circuit-lab-android-preview.apk` from **Assets**. This
 avoids transferring files from the build machine. Continue with installation
-and the checklist below.
+and the checklist below. If beta.1 is already installed, install beta.2 over it
+without uninstalling. Both use the same application ID and signing certificate;
+beta.2 increments the version code to 2 so Android can update the app while
+retaining its data. Confirm that your progress remains after the update.
 
 The locally prepared file is `dist/circuit-lab-android-preview.apk`, accompanied
-by its `.sha256` checksum. The measured download is **3.60 MB (3.44 MiB)**. It is
+by its `.sha256` checksum. Beta.2 is **3,608,099 bytes (3.61 MB / 3.44 MiB)**. It is
 a release build signed with a local preview certificate, not a production
 signing identity. It is generated and is not included in Git or the source
 archive.
@@ -43,6 +46,10 @@ For an initial test:
   wire, cancel a connection, and try pinch zoom and panning.
 - Rotate between portrait and landscape. Check that controls remain reachable
   and the status/navigation bars do not cover the game.
+- In a narrow window, check that the task opens for each lesson, **Build circuit**
+  closes it, and **Check circuit** stays visible. Open **Expected results** below
+  the parts list and select a row to set the inputs. The handbook should show one
+  page at a time with individual page numbers.
 - Build part of a lesson, wait a moment, switch to another app, and return. Close
   and reopen CircuIT Lab too; the circuit and progress should remain.
 - Try importing a circuit JSON file exported from the web version; also cancel
@@ -146,8 +153,9 @@ python3 -m unittest discover -s tests -p 'test_mobile.py' -v
 
 `tests/mobile-browser.mjs` runs against a static server serving `dist/mobile/`
 and a disposable Chrome instance, using the same DevTools setup as the main
-browser suite. It checks native entry loading, service-worker suppression,
-saved progress, all 24 lessons / 2,458 cases, and mouse/emulated-touch wiring.
+browser suite. It checks native entry loading, the initial single-page handbook,
+task controls, separate expected results, service-worker suppression, saved
+progress, all 24 lessons / 2,458 cases, and mouse/emulated-touch wiring.
 This checks the packaged web assets, not Android's actual WebView or OS behavior.
 
 On a real phone, check first launch without a network connection, wiring and
