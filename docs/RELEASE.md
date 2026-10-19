@@ -1,12 +1,12 @@
 # Release validation — CircuIT Lab
 
-WebAssembly migration, curriculum update, and C++ style refactor validated on 16 October 2026. The web release is a static application with a C++ engine running in a Web Worker. No public deployment or native app-store publication was performed.
+WebAssembly migration, curriculum update, and C++ style refactor validated on 16 October 2026. The first Capacitor Android preview was built and checked on 19 October 2026. The game uses a C++ engine running in a Web Worker on both platforms. No public web deployment or app-store publication was performed. Android test packages are distributed separately as GitHub prereleases.
 
 ## Implementation
 
 Native and WebAssembly builds share the same C++ engine. CMake also produces an Emscripten ES module and WebAssembly binary. JavaScript converts arguments through the existing C ABI; it does not implement circuit behavior. Simulation and checking run in a worker, while editor gestures and rendering remain in the main thread.
 
-The shared web bundle includes offline caching, installation metadata/icons, and a small platform adapter for persistence, files, suspension, and offline setup. Existing save keys, file formats, migrations, lesson IDs, and clock semantics remain intact. `dist/app` is the artifact for static hosts and future mobile/desktop shells.
+The shared web bundle includes offline caching, installation metadata/icons, and a small platform adapter for persistence, files, suspension, and offline setup. Existing save keys, file formats, migrations, lesson IDs, and clock semantics remain intact. `dist/app` is the artifact for static hosts and the input to Capacitor mobile packaging.
 
 The default Docker image serves static files through unprivileged Nginx. The optional Python/Gunicorn API remains available for native integrations and tests.
 
@@ -75,6 +75,58 @@ The 15 October review covered clock/input ordering, malformed imports, maximum n
 
 ## Remaining platform work
 
-Physical Android/iOS devices, Safari/Firefox, native WebViews, battery/memory behavior, app suspension by the OS, and public HTTPS hosting require target-environment validation. No Android/iOS projects, desktop installers, signing setup, or app-store submissions are included. The shared application and integration boundaries are ready for those shells; see [PLATFORMS.md](PLATFORMS.md).
+Physical Android/iOS devices, Safari/Firefox, native WebViews, battery/memory behavior, app suspension by the OS, and public HTTPS hosting require target-environment validation. The Android preview is included; iOS projects, desktop installers, production signing, and app-store submissions are not. The chosen direction is Capacitor for mobile and web/PWA for desktop; see [PLATFORMS.md](PLATFORMS.md).
 
-Publish the complete static bundle over HTTPS and run the host checks in [DEPLOYMENT.md](DEPLOYMENT.md). Offline caching requires a successful initial installation. Updates activate after existing app tabs/windows close. Browser and native-app storage are separate; existing circuit export/import remains the transfer mechanism.
+Publish the complete static bundle over HTTPS and run the host checks in [DEPLOYMENT.md](DEPLOYMENT.md). Web offline caching requires a successful initial installation. Updates activate after existing app tabs/windows close. Browser and native-app storage are separate; circuit transfer from the Android preview requires the pending native export integration.
+
+## Android preview — 19 October 2026
+
+Capacitor 8.5.3 packages the existing shared UI and WebAssembly worker. Its Java
+activity only extends `BridgeActivity`; no optional native plugins, Rust code,
+Android NDK, or second simulation engine were added. Preparation changes only
+the HTML entry and adds the mobile adapter. The adapter disables service-worker
+registration and reports that export needs a native sharing integration.
+
+The release build uses JDK 21, Gradle 8.14.3, Android Gradle Plugin 8.13.0, SDK 36,
+and Build Tools 35.0.0. It targets API 36, with minimum API 24 and WebView 109.
+Code shrinking is disabled for this first baseline.
+
+| Artifact | Bytes | Size |
+| --- | ---: | ---: |
+| Shared application files, uncompressed | 1,231,935 | 1.17 MiB |
+| Unsigned release APK | 3,562,186 | 3.40 MiB |
+| Installable APK, local preview signature | 3,604,003 | 3.44 MiB / 3.60 MB |
+| Unsigned Android App Bundle | 3,428,077 | 3.27 MiB |
+
+These are measured file sizes, not Play Store download estimates or installed
+storage usage. The signed APK expands to roughly 9 MB of package entries;
+Android's installed code, WebView data, and saves consume additional space.
+The device supplies Android System WebView; the APK does not bundle Chromium.
+
+Validation completed:
+
+- `assembleRelease`, `bundleRelease`, and `lintRelease` passed. App lint reports
+  zero errors and four warnings: pinned Gradle/AppCompat update notices, the
+  generated Cordova config resource, and the square shared launcher icon. The
+  Capacitor dependency retains its upstream lint baseline (six existing errors
+  filtered); this is not a claim of zero framework lint findings.
+- All 29 prepared mobile files match their packaged APK/AAB entries byte for
+  byte. Shared game files, including the WASM engine, match `dist/app/`; only the
+  HTML entry differs. Neither package contains native `.so` libraries.
+- The APK uses the expected application ID and SDK limits and is not marked
+  debuggable. Its local preview signature verifies with APK signing schemes v2
+  and v3, and ZIP alignment passes.
+- Mobile preparation and source-exclusion tests pass, including preservation of
+  the prior mobile output if the compiled engine is missing.
+- The mobile bundle passes Chrome checks for entry loading, phone viewport,
+  service-worker suppression, save/reload, and the explicit export limitation.
+  All 24 lessons / 2,458 cases pass through its actual WebAssembly worker. Mouse,
+  keyboard, and emulated-touch wire creation/rerouting/source shortcuts pass.
+
+The browser suite tests the mobile assets in Chrome, not Android's actual
+WebView. This build machine has no USB device access or accelerated Android
+emulator, so physical-device installation, first launch offline, rotation,
+system bars, file picking, native Back navigation, lifecycle behavior, and
+updates still need phone testing. See [phone testing instructions](ANDROID.md).
+Native export, Back, and lifecycle integration remain work for the mobile
+release. Temporary browser and game-server processes were stopped after checks.

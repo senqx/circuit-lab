@@ -1,6 +1,6 @@
 # Web deployment
 
-CircuIT Lab is a static application. The C++ engine runs as WebAssembly in a browser worker. The host delivers files; it does not evaluate or store player circuits. The same build is suitable for future mobile and desktop shells.
+CircuIT Lab's web release is a static application. The C++ engine runs as WebAssembly in a browser worker. The host delivers files; it does not evaluate or store player circuits. The Capacitor Android preview packages the same shared build; see [Android packaging](ANDROID.md).
 
 ## Build and publish static files
 
@@ -89,4 +89,4 @@ Native HTTP requests remain bounded, use explicit memory state, and enforce same
 python3 scripts/package_release.py
 ```
 
-The source archive includes the engine, shared UI sources, tests, deployment files, scripts, and licenses. It excludes `dist`, compiled binaries, compiler caches, virtual environments, and local data. Recipients build their own `dist/app`. No host, domain, or app-store publication is performed by packaging.
+The source archive includes the engine, shared UI sources, mobile shell, tests, deployment files, scripts, and licenses. The Android Gradle wrapper is included so recipients can use the pinned build tool. The archive excludes generated applications, dependencies, SDKs, compiler caches, signing keys, virtual environments, and local configuration. Recipients build their own `dist/app` and, optionally, Android package. No host, domain, or app-store publication is performed by packaging.

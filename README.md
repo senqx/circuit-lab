@@ -42,7 +42,7 @@ Open `http://127.0.0.1:8000`. If you received only the bundle, run the command i
 
 ## Publish the web application
 
-The release is a static application: publish the contents of `dist/app` to a static HTTPS host, including GitHub Pages. The same folder is the application bundle for future mobile and desktop shells. Build it separately with:
+The web release is a static application: publish the contents of `dist/app` to a static HTTPS host, including GitHub Pages. The Android package also uses this shared build. Build it separately with:
 
 ```sh
 python3 scripts/build_app.py
@@ -56,6 +56,14 @@ docker run --rm -p 127.0.0.1:8000:8080 circuit-lab:release
 ```
 
 See [deployment instructions](docs/DEPLOYMENT.md) for static hosting, updates, containers, and the optional native HTTP service. [Platform integration](docs/PLATFORMS.md) explains shared code and the remaining work for packaged apps. [Release validation](docs/RELEASE.md) records the validation scope.
+
+## Android preview
+
+Download Android betas from [GitHub Releases](https://github.com/senqx/circuit-lab/releases). Open the `.apk` asset on your phone to install it; source archives are for developers.
+
+The first Android package uses Capacitor 8.5.3 and bundles the same UI and WebAssembly engine for offline play. See [Android setup and phone testing](docs/ANDROID.md) for prerequisites, build commands, installation, and the test checklist. Android development also needs Node.js 22+, JDK 21, and the Android SDK; web development does not.
+
+This is a preview for device testing. Native file export, Back navigation, and OS lifecycle integration still need work before a mobile release. iOS packaging comes later. Desktop users can play in the browser or install the PWA; desktop installers are deferred.
 
 ## Learn and experiment
 
@@ -85,7 +93,7 @@ Circuits, inputs, and progress save in this browser. Export JSON files to keep o
 ## One engine, different interfaces
 
 ```text
-Browser / PWA / future mobile or desktop shell
+Browser / PWA / Capacitor Android (iOS planned)
     → Shared UI → Web Worker → C ABI → C++ engine (WebAssembly)
 
 Optional integrations → C++ API or Python HTTP adapter → Same engine (native)
@@ -93,7 +101,7 @@ Optional integrations → C++ API or Python HTTP adapter → Same engine (native
 
 The C++17 library owns all component definitions, signal propagation, validation, memory, lesson specifications, and checking. Advanced blocks expand into ordinary circuits made from earlier parts. JavaScript handles editing, presentation, and argument conversion. The optional Python adapter supports native integrations. Neither implements gate evaluation.
 
-The chosen direction for mobile and desktop is the same UI and WebAssembly engine, with small platform adapters where needed. The UI uses standard HTML, CSS, JavaScript, and SVG. Responsive layouts and pointer events are shared; native shell selection, OS integrations, and testing on actual devices remain future work. There are no native app projects or installers yet.
+Mobile uses Capacitor; desktop uses the web/PWA. Both share the UI and WebAssembly engine, with small platform adapters where needed. The UI uses standard HTML, CSS, JavaScript, and SVG. Responsive layouts and pointer events are shared. The Android preview is included; testing on actual devices and the remaining native integrations are the next steps.
 
 Independent behavioral specifications deliberately check the recipes against expected answers. Alternative constructions and unused unwired parts are accepted; using the finished target chip cannot complete its own lesson.
 
@@ -110,8 +118,10 @@ tests/              Engine, transport, editor, and browser tests
 examples/           Small native C++ client
 docs/               Engine, deployment, platform, and validation guides
 deploy/             Hosting configuration
+platforms/capacitor/ Mobile shell, platform entry, and Android project
 build*/             Generated compiler output and caches
 dist/app/           Generated portable application bundle
+dist/mobile/        Generated bundle with the mobile entry
 CMakeLists.txt      Engine build entry point
 Dockerfile          Production container build entry point
 serve.py            Local launcher
@@ -121,7 +131,7 @@ LICENSE
 
 Application code lives in `src/`; build tools, tests, and hosting configuration are grouped by their own responsibilities. Standard tool entry files stay at the root. `build*`, `dist`, `.venv*`, `test-artifacts`, caches, and local tool metadata are excluded from Git and release sources. Build output is also excluded from container build input.
 
-Edit circuits and lesson behavior in `src/engine/`, and the interface in `src/ui/`. `src/ui/engine/` contains the worker and C-ABI bindings; `src/ui/platform.mjs` handles storage, files, lifecycle events, and offline setup. `python3 scripts/build_app.py` assembles the UI and compiled engine into `dist/app/`. Add native shell projects under `platforms/<shell>/` when a packaging framework is selected.
+Edit circuits and lesson behavior in `src/engine/`, and the interface in `src/ui/`. `src/ui/engine/` contains the worker and C-ABI bindings; `src/ui/platform.mjs` handles storage, files, lifecycle events, and offline setup. `python3 scripts/build_app.py` assembles the UI and compiled engine into `dist/app/`. `platforms/capacitor/` contains only the mobile shell and its platform overrides; sync prepares `dist/mobile/` and copies it into the Android package.
 
 The web build requires `src/engine/`, `src/ui/`, `CMakeLists.txt`, `scripts/build_app.py`, and `LICENSE`. The local launcher additionally uses `src/http_headers.py`. Tests, examples, documentation, `src/server/`, and `deploy/` support development or optional integrations; they are not required to build the static game. The native CMake build also builds `examples/native.cpp` and, by default, the engine tests.
 

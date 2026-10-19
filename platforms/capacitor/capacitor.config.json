@@ -1,0 +1,15 @@
+{
+  "appId": "io.github.senqx.circuitlab",
+  "appName": "CircuIT Lab",
+  "webDir": "../../dist/mobile",
+  "backgroundColor": "#292d29",
+  "android": {
+    "minWebViewVersion": 109
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "native",
+      "style": "DARK"
+    }
+  }
+}

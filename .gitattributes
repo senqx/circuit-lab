@@ -1,0 +1,2 @@
+# Windows launchers use CRLF when checked out, with normalized content in Git.
+*.bat text eol=crlf
