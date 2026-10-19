@@ -10,7 +10,7 @@ export async function curriculumChecks({send,js,wait,assert,click,screenshot}) {
     const source=fixture?`localStorage.setItem('signal-garden-v2:circuit:${fixture.level}',${JSON.stringify(JSON.stringify(fixture))});localStorage.setItem('signal-garden-v2:last',${JSON.stringify(JSON.stringify(fixture.level))});`:'';
     const setup=await send('Page.addScriptToEvaluateOnNewDocument',{source:source+`localStorage.setItem('signal-garden-v2:welcome','true');${resetProgress?"localStorage.setItem('signal-garden-v2:progress','{\"completed\":{}}');":''}`});
     await js('window.__oldDocument=true');await send('Page.reload');
-    await wait("!window.__oldDocument && document.querySelector('[data-node]')");
+    await wait("!window.__oldDocument && (document.body && !document.body.classList.contains('app-opening') && document.querySelector('[data-node]'))");
     await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:setup.identifier});
     if(await js("document.getElementById('inspector').hidden"))await click('#task-toggle');
   }
@@ -61,7 +61,7 @@ export async function curriculumChecks({send,js,wait,assert,click,screenshot}) {
   await assert("document.querySelector('[data-forward]').textContent.includes('Next') && document.querySelector('#modal-content .challenge-feedback').textContent.includes('5 other blocks')",'A correct mixed-gate XOR unlocks Next while explaining the NAND-only challenge');
   await js('window.dispatchEvent(new Event("beforeunload"))');
   await assert(`!!${record} && ${record}.bestNands===undefined`,'Mixed-gate correctness records completion without a NAND award');
-  await click('#stay-button');await click('#learn-tab');await click('#learn-panel [data-design-notes]');
+  await click('#stay-button');if(await js("document.querySelector('#results-dialog').open"))await click('#close-results');await click('#learn-panel [data-design-notes]');
   await assert("document.querySelector('.book-index strong').textContent==='Circuit design' && document.getElementById('book-spread').textContent.includes('Boolean algebra') && document.getElementById('book-spread').textContent.includes('sum of products') && document.getElementById('book-spread').textContent.includes('Real chips use a mixture')",'The challenge opens the Boolean algebra, construction and simplification crash course directly');
   await click('[data-guide-spread="0"]');
   await assert("document.querySelector('.book-index strong').textContent==='How to play'",'The handbook contents can return directly to playing instructions');
@@ -86,7 +86,7 @@ export async function curriculumChecks({send,js,wait,assert,click,screenshot}) {
   await js('window.dispatchEvent(new Event("beforeunload"))');
   await assert(`!${record} && document.querySelector('[data-forward]').textContent.includes('Skip') && !document.getElementById('modal').open`,'Checking a worked example earns neither completion nor a NAND award');
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
-  await click('#learn-tab');await click('#learn-panel [data-design-notes]');
+  if(await js("document.querySelector('#results-dialog').open"))await click('#close-results');await click('#learn-panel [data-design-notes]');
   await assert("document.getElementById('modal').scrollWidth<=document.getElementById('modal').clientWidth && document.querySelectorAll('.book-page').length===1",'Design lessons show one readable page at a time in a narrow handbook');
   await click('[data-guide-spread="0"]');await click('[data-guide-spread="2"]');
   await assert("document.querySelector('.book-index strong').textContent==='Circuit design' && [...document.querySelectorAll('.book-contents button')].every(button=>{const r=button.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth})",'Phone readers can find the crash course directly in the handbook contents');

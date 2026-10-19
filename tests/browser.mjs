@@ -30,7 +30,7 @@ async function choose(id,chapter){
  if(await js("getComputedStyle(document.getElementById('inspector')).position==='absolute' && !document.getElementById('inspector').hidden")){await click('#back-to-board');await wait("document.getElementById('inspector').hidden");}
 }
 async function example(){if(await js("document.getElementById('inspector').hidden"))await click('#task-toggle');await click('#example-button');await click('#load-example');await wait("document.querySelector('.preview-banner')");}
-async function reload(ready){await js('window.__oldDocument=true');await send('Page.reload');await wait(`!window.__oldDocument && (${ready})`);}
+async function reload(ready){await js('window.__oldDocument=true');await send('Page.reload');await wait(`document.body && !document.body.classList.contains('app-opening') && !window.__oldDocument && (${ready})`);}
 async function turnPage(selector){await click(selector);await wait("!document.getElementById('modal').dataset.turning");}
 try {
  await send('Page.enable');await send('Runtime.enable');
@@ -38,7 +38,7 @@ try {
  await send('Storage.clearDataForOrigin',{origin:new URL(url).origin,storageTypes:'service_workers,cache_storage'});
  await send('Network.enable');await send('Network.setCacheDisabled',{cacheDisabled:true});
  await send('Emulation.setDeviceMetricsOverride',{width:1512,height:982,deviceScaleFactor:1,mobile:false});
- await send('Page.navigate',{url});await wait("document.querySelector('[data-node]')");
+ await send('Page.navigate',{url});await wait("(document.body && !document.body.classList.contains('app-opening') && document.querySelector('[data-node]'))");
  if(process.argv.includes('--editor')) {
    const setup=await send('Page.addScriptToEvaluateOnNewDocument',{source:`localStorage.setItem('signal-garden-v2:circuit:sandbox',${JSON.stringify(JSON.stringify(routingFixture))});localStorage.setItem('signal-garden-v2:last','\"sandbox\"');localStorage.setItem('signal-garden-v2:welcome','true');`});
    await reload("document.querySelector('[data-shape^=NAND]') && document.body.classList.contains('free-play')");
@@ -62,14 +62,14 @@ try {
    await delay(300);await screenshot('v2-preview.png');console.log(await js("({title:document.title,status:document.getElementById('status-message').textContent,area:(()=>{const r=document.getElementById('canvas').getBoundingClientRect();return {w:r.width,h:r.height,share:r.width*r.height/(innerWidth*innerHeight)}})()})"));
  } else {
  const reset=await send('Page.addScriptToEvaluateOnNewDocument',{source:`localStorage.clear();localStorage.setItem('signal-garden-v1:progress',JSON.stringify({completed:{5:{parts:3}}}));window.__freshGarden=true;`});
- await send('Page.reload');await wait("window.__freshGarden && document.querySelector('[data-node]')");
+ await send('Page.reload');await wait("window.__freshGarden && (document.body && !document.body.classList.contains('app-opening') && document.querySelector('[data-node]'))");
  await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:reset.identifier});
  await wait("document.querySelector('dialog[data-kind=handbook]')?.open");
  await assert("document.querySelector('.book-index strong').textContent==='How to play' && document.getElementById('modal-content').textContent.includes('Build a computer, one discovery at a time')",'First launch opens How to play in the lab handbook');
  await assert("document.getElementById('book-spread').textContent.includes('Place and connect') && document.getElementById('book-spread').textContent.includes('Esc or right-click')",'The first pages explain building, wiring, and cancellation');
  await screenshot('00-how-to-play.png');await click('#close-guide');
  await assert("JSON.parse(localStorage.getItem('signal-garden-v2:welcome'))===true",'Closing the handbook remembers that the introduction was shown');
- await reload("document.querySelector('[data-node]')");
+ await reload("(document.body && !document.body.classList.contains('app-opening') && document.querySelector('[data-node]'))");
  await assert("!document.getElementById('modal').open",'Returning players go straight to their circuit');
  await assert("JSON.parse(localStorage.getItem('signal-garden-v2:progress')).completed['7']",'Old progress follows the reordered journey');
  await assert("localStorage.getItem('signal-garden-v1:progress')!==null",'Original saved data is retained');
@@ -86,7 +86,7 @@ try {
  await assert("document.querySelector('[data-pin=\"1:0:1\"]').classList.contains('guided')",'First instruction points to the sending dot');
  await assert("!!document.querySelector('[data-node=\"50\"].lamp .bulb-glass')",'The Light output is a recognizable bulb');
  await delay(200);await screenshot('01-first-lesson.png');
- await assert("document.getElementById('inspector').contains(document.getElementById('lesson-title')) && !document.querySelector('.lab-notes') && document.querySelectorAll('.task-expectation tbody tr').length===2",'Task title and expected outputs are visible in the task book, without lab notes');
+ await assert("document.getElementById('inspector').contains(document.getElementById('lesson-title')) && !document.querySelector('.lab-notes') && !document.querySelector('#learn-panel table')",'Task contains instructions without duplicate expected tables');
  await assert("document.getElementById('inspector').getBoundingClientRect().width>=310 && document.querySelector('#nodes .node-footprint').getBoundingClientRect().width<135",'The compact task panel keeps readable workbench parts');
  await assert("!document.getElementById('learning-path').querySelector('h1,[data-forward],[data-previous]')",'The learning path contains only the path');
  await assert("!document.getElementById('help-footer') && !document.getElementById('coach') && !document.getElementById('canvas-tip')",'Task and workbench omit redundant help panels');
@@ -96,7 +96,7 @@ try {
  await assert("document.getElementById('sandbox-nav').textContent.includes('Free play mode') && document.getElementById('sandbox-nav').classList.contains('free-mode-button') && document.getElementById('clear-button').getAttribute('aria-label')==='Reset experiment'",'Free play mode stands out, and lessons use Reset');
  await click('#journey-nav');await click('#path-toggle');await click('#close-journey');
  await assert("!document.getElementById('learning-path').hidden",'The journey map can make the chapter path visible');
- await reload("document.querySelector('[data-node]')");
+ await reload("(document.body && !document.body.classList.contains('app-opening') && document.querySelector('[data-node]'))");
  await assert("!document.getElementById('learning-path').hidden",'The chapter path preference survives reload');
  await click('#hide-path');
  await assert("document.getElementById('learning-path').hidden && !JSON.parse(localStorage.getItem('signal-garden-v2:path-visible'))",'The visible chapter path can be hidden directly');
@@ -258,7 +258,8 @@ try {
  await assert("document.getElementById('lesson-number').textContent.includes('06')",'AND follows NAND and NOT in the journey');
  await click('[data-part=NAND]');await click('[data-part=NAND]');await click('[data-part=NOT]');await click('#arrange-button');
  await pin(1,0,1);await pin(100,0,0);await pin(2,0,1);await pin(100,1,0);await pin(100,0,1);await pin(101,0,0);await pin(100,0,1);await pin(101,1,0);await pin(101,0,1);await pin(50,0,0);
- await assert("[...document.querySelectorAll('.task-expectation .expected')].map(e=>e.textContent).join('')==='0001'",'AND task shows its complete expected truth table');
+ await click('#expected-button');
+ await assert("[...document.querySelectorAll('#expected-panel .expected')].map(e=>e.textContent).join('')==='0001'",'AND expected results shows its truth table');await click('#expected-done');
  await click('#check-button');await wait("document.getElementById('modal').open");
  await assert("document.getElementById('modal-content').textContent.includes('You made it work')",'AND made with two NANDs passes, even with an unused unwired NOT');
  await click('#stay-button');await screenshot('14-and-from-nand.png');
@@ -268,22 +269,24 @@ try {
  await click('#check-button');await wait("document.getElementById('modal').open");await assert("document.getElementById('modal-content').textContent.includes('You made it work')",'NOT built from NAND passes through the browser');await click('#stay-button');
 
  await choose(14,2);await example();
- await assert("document.querySelector('.task-expectation h2').textContent==='Expected numbers' && document.querySelector('[data-inputs=\"[10,12]\"] .expected').textContent==='8'",'Bus expectations include mixed inputs with decimal results');
- await click('[data-inputs="[10,12]"]');await wait("document.querySelector('[data-node=\"50\"] .terminal-value').textContent==='8'");
- await click('[data-all-cases]');await assert("document.querySelectorAll('#expected-panel tbody tr').length===16 && document.querySelector('#expected-panel .test-note').textContent.includes('256') && !document.querySelector('#expected-dialog [role=tab]')",'Every bus case is available through a separate paginated reference');
+ await click('#expected-button');for(let page=1;page<=10;page++)await click(`#expected-panel [data-test-page="${page}"]`);
+ await assert("document.querySelector('#expected-panel [data-inputs=\"[10,12]\"] .expected').textContent==='8'",'Bus expectations include mixed inputs with decimal results');
+ await click('#expected-panel [data-inputs="[10,12]"]');await wait("document.querySelector('[data-node=\"50\"] .terminal-value').textContent==='8'");
+ await click('#expected-button');await assert("document.querySelectorAll('#expected-panel tbody tr').length===16",'Bus cases are paginated');
  await click('#expected-panel [data-test-page="1"]');await assert("document.querySelector('#expected-panel .table-paging span').textContent==='2 / 16'",'Expected case pages are navigable');
  await click('#expected-done');
  await pin(1,0,1);await pin(50,0,0);await click('#check-button');await wait("document.querySelector('.test-badge.failure')");
  await assert("document.querySelector('#test-panel .table-paging span').textContent==='2 / 16' && document.querySelector('#test-panel [data-inputs=\"[1,0]\"]').classList.contains('failed')",'A failed bus check opens the page containing its first mismatch');
- await click('#learn-tab');await click('[data-all-cases]');
+ if(await js("document.querySelector('#results-dialog').open"))await click('#close-results');await click('#expected-button');
  await assert("document.querySelector('#expected-panel .table-paging span').textContent==='1 / 16' && document.querySelector('#test-panel .table-paging span').textContent==='2 / 16' && !document.querySelector('#expected-dialog .test-badge')",'Expectations stay separate from grading and do not change its results page');
  await click('#close-expected');
  await choose(15,2);
  await assert("document.getElementById('learn-panel').scrollTop===0",'Changing experiments opens the task at its mission');
- await assert("[...document.querySelector('[data-inputs=\"[15,1,0]\"]').querySelectorAll('.expected')].map(e=>e.textContent).join(',')==='0,1'",'Adder examples explicitly show the wrapped sum and carry');
+ await click('#expected-button');for(let page=1;page<=30;page++)await click(`#expected-panel [data-test-page="${page}"]`);
+ await assert("[...document.querySelector('#expected-panel [data-inputs=\"[15,1,0]\"]').querySelectorAll('.expected')].map(e=>e.textContent).join(',')==='0,1'",'Adder cases show wrapped sum and carry');await click('#expected-done');
  await screenshot('15-number-expectations.png');
  await choose(20,4);await example();
- await assert("[...document.querySelectorAll('.task-expectation .expected')].map(e=>e.textContent).join(',')==='0,7,7,7,3,3' && !document.querySelector('.task-expectation [data-inputs]')",'Memory expectations show consecutive capture and hold steps');
+ await click('#expected-button');await assert("document.querySelectorAll('#expected-panel tbody tr').length>0 && !document.querySelector('#expected-panel [data-inputs]')",'Memory expectations show consecutive clock steps');await click('#expected-done');
  await click('[data-toggle="1"] rect');await js("document.getElementById('bus-value').value='9'");await click('#bus-form button');await click('[data-toggle="2"] rect');
  await wait("document.querySelector('[data-node=\"50\"] .terminal-value').textContent==='0'");
  await click('#tick-button');await wait("document.querySelector('[data-node=\"50\"] .terminal-value').textContent==='9'");
@@ -298,11 +301,11 @@ try {
  await assert("document.querySelector('[data-node=\"50\"] .terminal-value').textContent==='9'",'Redoing Tidy preserves captured memory');
  await screenshot('05-register.png');await click('#reset-clock');await wait("document.querySelector('[data-node=\"50\"] .terminal-value').textContent==='0'");
  await click('#check-button');await wait("document.querySelector('.test-badge.success')");
- await click('#task-toggle');await assert("document.querySelector('.workbench').getBoundingClientRect().width>innerWidth-40 && document.getElementById('inspector').hidden",'Hide task gives the workbench the full width');
+ await click('#close-results');await click('#task-toggle');await assert("document.querySelector('.workbench').getBoundingClientRect().width>innerWidth-40 && document.getElementById('inspector').hidden",'Hide task gives the workbench the full width');
  await assert("document.getElementById('task-toggle').textContent.includes('Show task') && document.getElementById('check-button').getClientRects().length && !document.getElementById('focus-button') && !document.getElementById('learn-toggle')",'One visible toggle replaces Focus and Task while Check stays available');
- await click('#check-button');await wait("!document.getElementById('inspector').hidden && document.querySelector('.test-badge.success')");
- await assert("document.getElementById('task-toggle').getAttribute('aria-expanded')==='true'",'Checking while the task is hidden opens the results');
- await click('#task-toggle');await click('#task-toggle');
+ await click('#check-button');await wait("document.getElementById('results-dialog').open && document.querySelector('.test-badge.success')");
+ await assert("document.getElementById('results-dialog').open",'Checking while task is hidden opens separate results');await click('#close-results');
+ await click('#task-toggle');
  await assert("!document.getElementById('inspector').hidden",'Show task restores the same panel');
  await click('#sandbox-nav');await assert("!document.querySelector('[data-part=NMOS]')",'Free play keeps transistor details optional');
  await click('#inside-toggle');await assert("!!document.querySelector('[data-part=NMOS]')",'The underlying transistor parts remain available');

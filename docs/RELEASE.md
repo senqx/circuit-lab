@@ -216,3 +216,31 @@ Install it over beta.1 to retain local data. This release was checked in Chrome
 and through Android build tools; its installation/upgrade and native WebView
 behavior still need phone testing. Native export, Back, and lifecycle integration
 remain pending. All temporary test browsers and game servers were stopped.
+
+## Android beta.3 — icons, handbook gestures, and startup
+
+Built on 19 October 2026 with application ID `io.github.senqx.circuitlab`,
+version name `1.0.0-beta.3`, and version code 3. Adds adaptive and themed Android
+icons, browser favicon fallbacks, future iOS assets, handbook swipes, an SVG task
+chevron, instructions without duplicate tables, separate grading, and a brief
+opening screen that prevents first-launch task flicker. SVG zoom no longer
+forces a cached compositor layer.
+
+`assembleRelease`, `bundleRelease`, and `lintRelease` passed. App lint has no
+errors; dependency-version, unused-resource, and legacy launcher-shape warnings
+remain. Capacitor retains its upstream lint baseline. APK v2/v3 signatures and
+ZIP alignment passed. Its certificate matches downloaded beta.2. All 32 mobile
+assets match the signed APK byte for byte. Minimum SDK is 24 and target SDK 36.
+
+The signed APK is 3,637,576 bytes. SHA-256:
+`175c341a5453d8fd0d548f8528989f241b367ecfb010c8a79a4f0f53cba9e1ff`.
+
+Focused Chrome gesture/startup/panel checks, rendering, routing, editor geometry,
+worker-client, and mobile packaging checks passed. The packaged mobile browser
+suite passed all 24 lessons / 2,458 cases, save recovery, and touch wiring.
+Wire rerouting and async/import release regressions also passed. Stationary flow had zero
+paint events and DOM mutations and paused/resumed correctly. Physical Android
+installation/upgrade testing, iOS packaging, and production signing remain
+pending. Existing preview signing and project GitHub credentials were recovered
+from the device snapshot into ignored `build-tools/`; they are excluded from
+Git and release downloads.

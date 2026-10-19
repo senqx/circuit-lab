@@ -9,7 +9,7 @@ export async function feedbackChecks({send,js,wait,assert,click,key,screenshot})
   const fixture={version:2,level:'sandbox',inputs:[1,0],circuit};
   const setup=await send('Page.addScriptToEvaluateOnNewDocument',{source:`localStorage.setItem('signal-garden-v2:circuit:sandbox',${JSON.stringify(JSON.stringify(fixture))});localStorage.setItem('signal-garden-v2:last','"sandbox"');localStorage.setItem('signal-garden-v2:welcome','true');`});
   await js('window.__oldDocument=true');await send('Page.reload');
-  await wait("!window.__oldDocument && document.body?.classList.contains('free-play') && document.querySelectorAll('.wire').length===2 && document.querySelector('.wire.high')");
+  await wait("!window.__oldDocument && !document.body?.classList.contains('app-opening') && document.body?.classList.contains('free-play') && document.querySelectorAll('.wire').length===2 && document.querySelector('.wire.high')");
   await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:setup.identifier});
   await assert("document.title.includes('Free play mode') && document.getElementById('clear-button').getAttribute('aria-label')==='Clear workbench'",'Free play mode uses its own title and trash action');
   await assert("document.querySelectorAll('.wire.high').length===1 && document.querySelectorAll('.wire.low').length===1",'Parallel routing preserves the distinct live signals');

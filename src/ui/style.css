@@ -102,10 +102,6 @@ h1 {font-size:22px;letter-spacing:-.7px;line-height:1.25;font-weight:600}
 .no-parts {color:#b0c1cb;padding:8px 5px;font-size:11px;line-height:1.7}
 .no-parts svg {display:none}
 .inspector {--ink:#343e35;--muted:#616956;--accent:#386651;--border:#b9bfa8;display:flex;flex-direction:column;background:var(--paper);color:var(--ink);border:1px solid #aeb59e;border-radius:4px;min-width:0;min-height:0}
-.inspector-tabs {display:flex;gap:25px;height:38px;min-height:38px;padding:0 18px;border-bottom:1px solid var(--border)}
-.inspector-tabs button {position:relative;color:var(--muted);font-size:11px;padding:0}
-.inspector-tabs button.active {color:var(--accent)}
-.inspector-tabs button.active:after {content:'';position:absolute;height:2px;left:0;right:0;bottom:-1px;background:var(--accent)}
 .inspector-content {flex:1;overflow:auto;padding:0 18px 18px;scrollbar-width:thin;scrollbar-color:#aab199 transparent}
 .lesson-tag {display:inline-flex;font:8px var(--mono);letter-spacing:.9px;padding:5px 7px;border-radius:3px;background:#c5ceb8;color:#405a45}
 .inspector h2 {font-size:18px;line-height:1.35;margin:12px 0}
@@ -368,7 +364,7 @@ dialog[data-kind=handbook] #modal-content {display:grid;grid-template-columns:1f
 .tool-token svg {width:19px;height:19px}
 .inspector-footer .back-to-board {display:none}
 
-#diagram {position:absolute;top:0;left:0;width:0;height:0;transform-origin:0 0;will-change:transform}
+#diagram {position:absolute;top:0;left:0;width:0;height:0;transform-origin:0 0}
 .circuit-svg {display:block;overflow:visible}
 #signal-flow {position:absolute;top:0;left:0;width:0;height:0;pointer-events:none;z-index:1;transform-origin:0 0}
 .flow-dot {position:absolute;top:-2px;left:-2px;width:4px;height:4px;border-radius:50%;background:#fff0cf;will-change:transform}
@@ -526,8 +522,6 @@ dialog[data-kind=handbook] #modal-content {display:grid;grid-template-columns:1f
   .task-dock .inspector {position:absolute;left:-1px;right:-1px;bottom:calc(100% + 8px);z-index:1;height:min(70dvh,640px);max-height:calc(100dvh - 172px);min-height:0;flex:none;border:1px solid #aeb59e;border-radius:12px;overflow:hidden;box-shadow:0 -6px 26px #07101b40}
   .task-heading {padding:15px 18px 12px}
   .task-heading h1 {font-size:23px}
-  .inspector-tabs {min-height:44px;gap:25px}
-  .inspector-tabs button {font-size:12px}
   .inspector-content {min-height:0;overflow:auto;overscroll-behavior:contain;padding:0 18px 18px}
   .inspector .mission-rule {font-size:15px}
   .inspector-footer {display:block;flex-shrink:0;padding:10px 18px;background:#d6d9c3;border-top:1px solid #acb79a}
@@ -541,10 +535,23 @@ dialog[data-kind=handbook] #modal-content {display:grid;grid-template-columns:1f
   .task-dock .inspector {height:calc(100dvh - 166px)}
   .task-heading {padding:8px 15px}.task-heading h1 {font-size:18px;margin:0}
   #lesson-subtitle {display:none}
-  .inspector-tabs {min-height:35px;height:35px}
   .parts-tray {gap:5px;padding-top:7px}.tray-heading>span:last-child {display:none}
   .tray-results {min-height:44px;padding-top:5px;gap:3px}
 }
 @media(prefers-reduced-motion:reduce) {*{scroll-behavior:auto!important}}
 
 @media(max-width:370px) { .brand {font-size:13px;gap:4px}.brand img {width:20px;height:20px}.nav-link {font-size:9px;padding:6px}.handbook-button {padding:5px}.topbar {gap:5px} }
+
+/* Let SVG repaint at the current zoom instead of enlarging a cached GPU layer. */
+#diagram {will-change:auto}
+.book-spread {touch-action:pan-y pinch-zoom}
+.panel-toggle .task-chevron {width:24px;height:24px;margin-left:auto}
+#results-dialog {width:min(680px,94vw)}
+#results-dialog .inspector-content {padding-top:18px}
+#opening {position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#17252c;color:#f4e9d4;gap:20px}
+#opening img {filter:drop-shadow(0 0 22px #e8b66e45)}
+#opening>div {font-size:clamp(28px,7vw,42px);font-weight:600;letter-spacing:.02em;text-shadow:0 0 28px #e8b66e55}
+#opening>div span {color:#e8b66e}
+#opening p {font-size:12px;color:#a8bdc5;margin:0}
+.app-opening>header,.app-opening>main {visibility:hidden}
+.app-opening dialog {visibility:hidden}

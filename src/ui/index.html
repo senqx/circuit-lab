@@ -3,17 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#242825">
+  <meta name="theme-color" content="#17252c">
   <meta name="description" content="A little curiosity. A few connections. Discover logic by playing with signals, switches, and ideas.">
   <title>CircuIT Lab — Curiosity is all you need.</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <meta name="theme-color" content="#17252c">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="stylesheet" href="style.css">
   <script type="module" src="app.js"></script>
 </head>
-<body>
+<body class="app-opening">
+  <div id="opening" role="status" aria-label="Opening CircuIT Lab"><img src="icon.svg" width="88" height="88" alt=""><div>Circu<span>IT</span> Lab</div><p>Switch it. Wire it. Make it work.</p></div>
   <header class="topbar">
     <a href="#" class="brand" aria-label="CircuIT Lab home"><img src="icon.svg" alt="" width="29" height="29"><span>Circu<span class="brand-dot">IT</span> Lab</span></a>
     <nav class="topnav" aria-label="Main"><button id="journey-nav" class="nav-link active" aria-expanded="false" aria-controls="journey-sidebar">Your journey <span id="nav-progress">0 / 24</span></button><button id="sandbox-nav" class="nav-link free-mode-button"><span aria-hidden="true">✳</span> Free play mode</button></nav>
@@ -52,8 +53,7 @@
       <div class="task-panel-bar"><div class="breadcrumb"><span id="chapter-label">SIGNALS</span><span class="breadcrumb-dot">/</span><span id="lesson-number">01</span></div><div id="task-label" class="task-label" hidden></div><button id="task-toggle" class="panel-toggle" aria-expanded="true" aria-controls="inspector"></button></div>
       <aside class="inspector" id="inspector" aria-label="Experiment instructions">
         <div class="task-heading"><h1 id="lesson-title" tabindex="-1">Send your first signal</h1><p id="lesson-subtitle">One connection. Your first discovery.</p></div>
-        <div class="inspector-tabs" role="tablist"><button id="learn-tab" role="tab" aria-controls="learn-panel" aria-selected="true" class="active">Your task</button><button id="test-tab" role="tab" aria-controls="test-panel" aria-selected="false">Check results <span id="test-dot"></span></button></div>
-        <div id="learn-panel" class="inspector-content" role="tabpanel" aria-labelledby="learn-tab"></div><div id="test-panel" class="inspector-content" role="tabpanel" aria-labelledby="test-tab" hidden></div>
+        <div id="learn-panel" class="inspector-content"></div>
         <div class="inspector-footer"><button id="back-to-board" class="button primary back-to-board">Build circuit <span aria-hidden="true">↓</span></button></div>
       </aside>
       <div class="task-actions" aria-label="Experiment actions">
@@ -71,6 +71,7 @@
     <div id="expected-panel" class="expected-content"></div>
     <div class="expected-footer"><button id="expected-done" class="button primary">Back to circuit</button></div>
   </dialog>
+  <dialog id="results-dialog" aria-label="Circuit check results"><button id="close-results" class="modal-close icon-button" aria-label="Close check results">×</button><div id="test-panel" class="inspector-content"></div></dialog>
   <input id="import-file" type="file" accept=".json,application/json" hidden>
   <noscript>Enable JavaScript to start experimenting with signals.</noscript>
 </body>

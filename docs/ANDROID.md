@@ -14,29 +14,18 @@ and file sharing are the next integrations to test and finish.
 
 ## Test the prepared APK on a phone
 
-Open [beta.2 on GitHub Releases](https://github.com/senqx/circuit-lab/releases/tag/v1.0.0-beta.2)
-on the phone and download `circuit-lab-android-preview.apk` from **Assets**. This
-avoids transferring files from the build machine. Continue with installation
-and the checklist below. If beta.1 is already installed, install beta.2 over it
-without uninstalling. Both use the same application ID and signing certificate;
-beta.2 increments the version code to 2 so Android can update the app while
-retaining its data. Confirm that your progress remains after the update.
+Open [beta.3 on GitHub Releases](https://github.com/senqx/circuit-lab/releases/tag/v1.0.0-beta.3)
+on the phone and download `circuit-lab-android-preview.apk` from **Assets**.
+Install beta.3 over beta.2 without uninstalling: both use the same application ID
+and signing certificate, and beta.3 increases the version code to 3. Confirm that
+saved circuits and progress remain after updating.
 
-The locally prepared file is `dist/circuit-lab-android-preview.apk`, accompanied
-by its `.sha256` checksum. Beta.2 is **3,608,099 bytes (3.61 MB / 3.44 MiB)**. It is
-a release build signed with a local preview certificate, not a production
-signing identity. It is generated and is not included in Git or the source
-archive.
+The prepared APK is `dist/circuit-lab-android-preview.apk`, with a `.sha256`
+checksum beside it. Beta.3 is **3,637,576 bytes (3.64 MB / 3.47 MiB)** and uses the
+local preview certificate, not a production signing identity. Build outputs and
+signing material remain ignored and excluded from release sources.
 
-You do not need to connect the phone to the build machine:
-
-1. Download the APK to your own computer. If you use a remote editor, use its
-   file-download command for the file above.
-2. Transfer it to an Android phone by USB, Quick Share, or a private cloud drive.
-3. Open the APK on the phone. If prompted, allow **Install unknown apps** for
-   the browser or file manager used to open it, then install **CircuIT Lab**.
-4. Turn on airplane mode before the first launch. The handbook and game should
-   load from the package without connecting to a game server.
+Open the installed app in airplane mode to verify bundled offline startup.
 
 For an initial test:
 
@@ -49,7 +38,7 @@ For an initial test:
 - In a narrow window, check that the task opens for each lesson, **Build circuit**
   closes it, and **Check circuit** stays visible. Open **Expected results** below
   the parts list and select a row to set the inputs. The handbook should show one
-  page at a time with individual page numbers.
+  page at a time with individual page numbers; swipe left/right to turn pages.
 - Build part of a lesson, wait a moment, switch to another app, and return. Close
   and reopen CircuIT Lab too; the circuit and progress should remain.
 - Try importing a circuit JSON file exported from the web version; also cancel

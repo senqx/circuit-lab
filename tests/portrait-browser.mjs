@@ -18,7 +18,7 @@ export async function handbookLaunchChecks({send,js,wait,assert,screenshot,url})
         await wait('navigator.serviceWorker.controller');
         await send('Network.emulateNetworkConditions',{offline:true,latency:0,downloadThroughput:0,uploadThroughput:0});
         await js('window.__oldDocument=true');await send('Page.reload');
-        await wait(`!window.__oldDocument && (${firstPage})`);
+        await wait(`document.body && !document.body.classList.contains('app-opening') && !window.__oldDocument && (${firstPage})`);
         await assert(`document.querySelectorAll('.book-page').length===1 && (${firstPage})==='1 / 8'`,'The cached welcome handbook also starts with one page while offline');
         await send('Network.emulateNetworkConditions',{offline:false,latency:0,downloadThroughput:-1,uploadThroughput:-1});
       }
@@ -60,7 +60,7 @@ export async function portraitChecks({send,js,wait,assert,click:pressButton,key,
   const fresh=await send('Page.addScriptToEvaluateOnNewDocument',{source:'localStorage.clear()'});
   await js('window.__oldDocument=true');
   await send('Page.reload');
-  await wait("!window.__oldDocument && document.querySelector('[data-node]') && document.getElementById('modal').open");
+  await wait("document.body && !document.body.classList.contains('app-opening') && !window.__oldDocument && document.querySelector('[data-node]') && document.getElementById('modal').open");
   await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:fresh.identifier});
   const bookCount="document.querySelector('.book-return [aria-live]').textContent";
   async function turn(selector) {await click(selector);await wait("!document.getElementById('modal').dataset.turning");}
@@ -151,7 +151,7 @@ export async function portraitChecks({send,js,wait,assert,click:pressButton,key,
   // Saved progress suppresses the welcome book, never the new lesson's task.
   await viewport(600,1000);await js('window.dispatchEvent(new Event("pagehide"));window.__oldDocument=true');
   await send('Page.reload');
-  await wait(`!window.__oldDocument && ${value(50)}==='1'`);
+  await wait(`document.body && !document.body.classList.contains('app-opening') && !window.__oldDocument && ${value(50)}==='1'`);
   await assert("!document.getElementById('modal').open && document.getElementById('task-toggle').getAttribute('aria-expanded')==='true'",'Reloading a saved circuit in a narrow desktop window still introduces its task');
   await closeTask();
 

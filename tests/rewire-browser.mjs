@@ -19,7 +19,7 @@ export async function rewireChecks({send,js,wait,assert,click,key,screenshot}) {
   async function loadFixture(data) {
     const setup=await send('Page.addScriptToEvaluateOnNewDocument',{source:`localStorage.setItem('signal-garden-v2:circuit:sandbox',${JSON.stringify(JSON.stringify(data))});localStorage.setItem('signal-garden-v2:last','"sandbox"');localStorage.setItem('signal-garden-v2:welcome','true');`});
     await js('window.__oldDocument=true');await send('Page.reload');
-    await wait("!window.__oldDocument && document.querySelector('[data-node=\"50\"] .terminal-value')");
+    await wait("document.body && !document.body.classList.contains('app-opening') && !window.__oldDocument && document.querySelector('[data-node=\"50\"] .terminal-value')");
     await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:setup.identifier});
   }
   await loadFixture(fixture);
@@ -220,6 +220,6 @@ export async function rewireChecks({send,js,wait,assert,click,key,screenshot}) {
   await press(original);await release(original);await key('Delete');await wait(`${value(50)}==='?'`);
   await assert(`${value(51)}==='0' && document.querySelector('[data-key=\"100:1:51:0\"]')`,'The new connection works independently after the targeted wire is deleted');
   await js("window.dispatchEvent(new Event('beforeunload'));window.__oldDocument=true");await send('Page.reload');
-  await wait(`!window.__oldDocument && document.querySelector('[data-node=\"51\"] .terminal-value')?.textContent==='0'`);
+  await wait(`document.body && !document.body.classList.contains('app-opening') && !window.__oldDocument && document.querySelector('[data-node=\"51\"] .terminal-value')?.textContent==='0'`);
   await assert(`${value(50)}==='?' && document.querySelector('[data-key=\"100:1:51:0\"]')`,'The ordinary source connection survives saving and reloading');
 }

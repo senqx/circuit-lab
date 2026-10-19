@@ -12,6 +12,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clone = (x) => structuredClone(x);
 const icons = {
+  chevronUp:'<path d="m6 15 6-6 6 6"/>',
   play:'<path d="m8 5 11 7-11 7Z"/>', check:'<path d="m5 12 4 4L19 6"/>',
   help:'<circle cx="12" cy="12" r="9"/><path d="M9.3 9a2.8 2.8 0 0 1 5.4 1c0 2-2.7 2-2.7 4m0 3h.01"/>',
   book:'<path d="M12 6v15M3 4c4-1 6 0 9 2 3-2 5-3 9-2v15c-4-1-6 0-9 2-3-2-5-3-9-2Z"/>',
@@ -491,7 +492,7 @@ function renderCamera() {
     const original=drag.originals[0],n=nodeMap.get(original.id);
     display.x-=n.x-original.x;display.y-=n.y-original.y;
   }
-  $('diagram').style.transform=`translate3d(${-display.x*display.scale}px,${-display.y*display.scale}px,0) scale(${display.scale})`;
+  $('diagram').style.transform=`translate(${-display.x*display.scale}px,${-display.y*display.scale}px) scale(${display.scale})`;
   flow.setCamera(display,r.width,r.height);
   $('zoom-value').textContent=`${Math.round(camera.scale/DEFAULT_ZOOM*100)}%`;
 }
@@ -609,14 +610,12 @@ function renderLevel() {
   $('lesson-title').innerHTML=esc(mode==='journey'?current.title:'Room to experiment')+'<span class="title-dot">.</span>';
   $('lesson-subtitle').textContent=mode==='journey'?current.subtitle:'Your ideas. Your rules. All the building blocks.';
   $('check-button').innerHTML=icon(mode==='journey'?'check':'spark')+(mode==='journey'?'Check circuit':'Run circuit');
-  $('test-tab').innerHTML=(mode==='journey'&&current.sequential?'Clock trace':'Check results')+' <span id="test-dot"></span>';
-  $('test-tab').disabled=mode==='sandbox';
   $('expected-button').hidden=mode==='sandbox';
   document.title=`${mode==='journey'?current.title:'Free play mode'} — CircuIT Lab`;
   $('clear-button').innerHTML=icon(mode==='journey'?'reset':'trash');
   $('clear-button').title=mode==='journey'?'Reset experiment':'Clear workbench';
   $('clear-button').setAttribute('aria-label',$('clear-button').title);
-  renderSidebar();renderParts();renderLearn();renderTest();renderClock();renderBoard();switchTab('learn');
+  renderSidebar();renderParts();renderLearn();renderTest();renderClock();renderBoard();
   setTaskVisible(taskSheet.matches?mode==='journey':taskOpen,false);
   status('A space to experiment. Mistakes welcome.');
 }
@@ -632,7 +631,7 @@ function renderLearn() {
     $('learn-panel').innerHTML=`<span class="lesson-tag">ROOM FOR YOUR IDEAS</span><h2>What will you make?</h2><p>Mix the building blocks. Invent a puzzle, make a calculator, or give a number somewhere to live.</p><label class="inside-option"><input id="inside-toggle" type="checkbox" ${showInside?'checked':''}> Peek inside: transistor parts</label><div id="node-detail"></div>`;
     return;
   }
-  $('learn-panel').innerHTML=`<span class="task-section-label">YOUR MISSION</span><p class="mission-rule">${esc(current.goal)}</p><p class="task-build">You’re building: <strong>${esc(parts[current.target].name)}</strong>.</p>${expectedMarkup()}
+  $('learn-panel').innerHTML=`<span class="task-section-label">YOUR MISSION</span><p class="mission-rule">${esc(current.goal)}</p><p class="task-build">You’re building: <strong>${esc(parts[current.target].name)}</strong>.</p>
     ${progress.completed[current.id]?`<div class="lesson-complete-badge">✓ You've completed this experiment.</div><p class="revisit-note">Your circuit is saved. Keep exploring here, or use Next below.</p>`:''}${challengeMarkup()}
     ${practice?'<div class="preview-banner">You are exploring a worked example. Try it, then build your own to complete the experiment. <button id="start-fresh" class="text-button">Start my own circuit →</button></div>':''}
     <div class="hint-area"><div class="hint-top"><div class="section-label">${icon('bulb')}Stuck? Take a hint.</div><span>${hints} / ${current.hints.length}</span></div>${current.hints.slice(0,hints).map((h,i)=>`<div class="hint"><strong>${i+1}.</strong> ${esc(h)}</div>`).join('')}<button id="hint-button" class="button" ${hints>=current.hints.length?'disabled':''}>${hints?'Give me the next hint':'Give me a hint'} ${icon('arrow')}</button><button id="example-button" class="example-button">See a working example</button></div>
@@ -665,12 +664,6 @@ function tableMarkup(rows,actual=false) {
   const spec=parts[current.target],sequential=current.sequential;
   return `<div class="test-table-wrap"><table class="truth-table"><thead><tr>${sequential?'<th scope="col" title="Capture on this clock step">Clock</th>':''}${spec.inputs.map(p=>`<th scope="col">${esc(p.name)}</th>`).join('')}${spec.outputs.map(p=>`<th scope="col">${esc(p.name)}<br>expected</th>`).join('')}${actual?spec.outputs.map(p=>`<th scope="col">${esc(p.name)}<br>got</th>`).join(''):''}</tr></thead><tbody>${rows.map((r,i)=>`<tr ${sequential?'':`data-row="${i}" data-inputs="${esc(JSON.stringify(r.inputs))}" tabindex="0" role="button" aria-label="Try inputs ${r.inputs.join(', ')}; expect ${r.expected.join(', ')}"`} class="${actual&&!r.passed?'failed':!sequential&&r.inputs.every((v,i)=>v===inputs[i])?'current':''}">${sequential?`<td>${r.tick?'↦':'–'}</td>`:''}${r.inputs.map(v=>`<td>${valueText(v)}</td>`).join('')}${r.expected.map(v=>`<td class="expected">${valueText(v)}</td>`).join('')}${actual?r.actual.map(v=>`<td>${valueText(v)}</td>`).join(''):''}</tr>`).join('')}</tbody></table></div>`;
 }
-function expectedMarkup() {
-  const rows=current.tests;
-  const sample=current.exampleInputs?.length?current.exampleInputs.map(input=>rows.find(row=>row.inputs.every((v,i)=>v===input[i]))):rows.slice(0,current.sequential?6:8);
-  const bus=parts[current.target].inputs.concat(parts[current.target].outputs).some(p=>p.width>1);
-  return `<section class="task-expectation" aria-label="Expected circuit behavior"><h2>${current.sequential?'Expected clock steps':bus?'Expected numbers':'Expected truth table'}</h2>${tableMarkup(sample)}<p class="expectation-note">${current.sequential?'Start with memory = 0; read downward. ↦ = clock step; – = no clock.':bus?'Numbers are decimal (0–15). Click a row to try its inputs.':'Click a row to try its inputs. Match every expected output.'}</p>${rows.length>sample.length?`<button class="text-button" data-all-cases>See all ${rows.length} ${current.sequential?'steps':'cases'} →</button>`:''}</section>`;
-}
 function renderTest() {
   if(mode==='sandbox')return;
   const result=lastResult,rows=result?.rows?.length?result.rows:current.tests;
@@ -696,6 +689,7 @@ function showExpected() {
 function tryTableRow(event) {
   const el=event.target.closest('[data-inputs]');if(!el)return;
   const fromExpected=$('expected-dialog').contains(el);
+  if($('results-dialog').contains(el))$('results-dialog').close();
   inputs=JSON.parse(el.dataset.inputs);explored=true;save();updateSignals();renderTest();scheduleSimulation();
   if(fromExpected)$('expected-dialog').close();
   if(taskSheet.matches||fromExpected){returnToBoard();toast(`Inputs set to ${inputs.join(', ')}. Watch the circuit respond.`);}
@@ -703,12 +697,6 @@ function tryTableRow(event) {
 function renderClock() {
   const hasMemory=mode==='sandbox'?graph.nodes.some(n=>parts[n.kind]?.sequential):current.sequential;
   $('clock-bar').hidden=!hasMemory; $('tick-count').textContent=`Step ${ticks}`;
-}
-function switchTab(tab) {
-  $('learn-panel').hidden=tab!=='learn';$('test-panel').hidden=tab!=='test';
-  $(`${tab}-panel`).scrollTop=0;
-  $('learn-tab').classList.toggle('active',tab==='learn');$('test-tab').classList.toggle('active',tab==='test');
-  $('learn-tab').setAttribute('aria-selected',String(tab==='learn'));$('test-tab').setAttribute('aria-selected',String(tab==='test'));
 }
 function scheduleSimulation() {if(simulationScheduled)return;simulationScheduled=true;queueMicrotask(()=>{simulationScheduled=false;runSimulation(false);});}
 function runSimulation(tick=false) {
@@ -784,7 +772,8 @@ async function checkCircuit() {
     const r=await engine.request('check',{circuit:graph,level:id});
     if(rev!==revision)return;
     lastResult=r;testPage=Math.max(0,Math.floor((r.rows||[]).findIndex(row=>!row.passed)/TEST_PAGE_SIZE));
-    renderTest();renderGuidance();openTask('test');
+    renderTest();renderGuidance();
+    if(!r.passed||practice)$('results-dialog').showModal();
     if(r.passed) {
       if(practice){toast('The worked circuit passes every check. Start fresh when you’re ready to build it.','success');return;}
       const record={...progress.completed[id],parts:graph.nodes.filter(n=>!terminal(n)).length};
@@ -812,7 +801,7 @@ function showSkip() {
   const next=nextLevel()?.id||'sandbox';
   modal(`<span class="lesson-tag">COME BACK WITH FRESH EYES</span><h2>Skip this experiment?</h2><p class="skip-message">${skipMessages[index]}</p><p class="skip-note">Your circuit stays saved, and this experiment stays unfinished. Previous or Your journey will bring you back.</p><div class="modal-actions"><button id="keep-trying" class="button primary">Keep trying</button><button id="skip-hint" class="button" ${hints>=current.hints.length?'disabled':''}>Get a hint</button><button id="confirm-skip" class="text-button">Skip for now →</button></div>`, 'skip');
   $('keep-trying').onclick=()=>$('modal').close();
-  $('skip-hint').onclick=()=>{$('modal').close();openTask('learn');revealHint();};
+  $('skip-hint').onclick=()=>{$('modal').close();openTask();revealHint();};
   $('confirm-skip').onclick=()=>{$('modal').close();loadLevel(next);};
   $('keep-trying').focus();
 }
@@ -840,6 +829,7 @@ function showGuide(page=guidePage) {
   modal(`<div class="book-index"><span>LAB HANDBOOK</span><strong>${spread.title}</strong><nav class="book-contents" aria-label="Handbook contents">${handbookSpreads.map((item,i)=>`<button data-guide-spread="${i}" ${i===spreadIndex?'aria-current="page"':''} ${guideTurning?'disabled':''}>${item.title}</button>`).join('')}</nav></div>
     <div id="book-spread" class="book-spread">${handbookPages.slice(start,start+count).map((page,i)=>`<article class="book-page"><span class="book-eyebrow">PAGE ${String(start+i+1).padStart(2,'0')} / ${totalPages}</span><h2>${page.title}</h2>${page.body}</article>`).join('')}</div>
     <div class="book-footer handbook-footer"><button id="guide-previous" class="page-turn previous" ${previous<0||guideTurning?'disabled':''} aria-label="Previous ${count===1?'page':'pages'}: ${esc(previousTitle)}">${turnArrow}<span>${esc(previousTitle)}</span></button><div class="book-return"><span aria-live="polite">${start+1}${count===2?'–'+Math.min(start+count,totalPages):''} / ${totalPages}</span><button id="close-guide" class="${readStorage('welcome',false)?'text-button':'button primary'}">${readStorage('welcome',false)?'Back to experiment':'Start building'}</button><button id="guide-home" class="text-button" ${start===0?'hidden':''}>How to play</button></div><button id="guide-next" class="page-turn next" ${next>=totalPages||guideTurning?'disabled':''} aria-label="Next ${count===1?'page':'pages'}: ${esc(nextTitle)}">${turnArrow}<span>${esc(nextTitle)}</span></button></div>`, 'handbook');
+  bindGuideSwipe($('book-spread'));
   $('guide-previous').onclick=()=>turnGuide(-1);
   $('guide-next').onclick=()=>turnGuide(1);
   document.querySelectorAll('[data-guide-spread]').forEach(button=>button.onclick=()=>{
@@ -850,6 +840,21 @@ function showGuide(page=guidePage) {
   $('modal').scrollTop=0;
   $('close-guide').onclick=()=>$('modal').close();
   $('guide-home').onclick=()=>showGuide(0);
+}
+function bindGuideSwipe(spread) {
+  let gesture=null;
+  spread.addEventListener('pointerdown',event=>{
+    if(!event.isPrimary||event.pointerType==='mouse'||event.target.closest('button,a,input'))return;
+    gesture={id:event.pointerId,x:event.clientX,y:event.clientY,time:performance.now()};
+    spread.setPointerCapture(event.pointerId);
+  });
+  spread.addEventListener('pointerup',event=>{
+    if(!gesture||gesture.id!==event.pointerId)return;
+    const dx=event.clientX-gesture.x,dy=event.clientY-gesture.y,elapsed=performance.now()-gesture.time;
+    gesture=null;
+    if(Math.abs(dx)>=55&&Math.abs(dx)>Math.abs(dy)*1.5&&elapsed<1000)turnGuide(dx<0?1:-1);
+  });
+  spread.addEventListener('pointercancel',()=>{gesture=null;});
 }
 async function turnGuide(direction) {
   const next=guideNeighbour(direction);
@@ -905,7 +910,7 @@ function setTaskVisible(visible,animate=true) {
   $('task-label').hidden=!compact||!visible;
   $('task-label').innerHTML=taskLabel;
   toggle.innerHTML=compact
-    ? taskLabel+'<span class="task-chevron" aria-hidden="true">⌃</span>'
+    ? taskLabel+icon('chevronUp').replace('<svg ','<svg class="task-chevron" ')
     : icon('panel')+`<span>${visible?'Hide task':'Show task'}</span>`;
   toggle.setAttribute('aria-label',`${visible&&!compact?'Hide':'Show'} ${mode==='journey'?'task: '+current.title:'workspace notes'}`);
   if(changed&&taskSheet.matches&&animate&&!matchMedia('(prefers-reduced-motion:reduce)').matches){
@@ -919,9 +924,9 @@ function setTaskVisible(visible,animate=true) {
   if(visible&&compact&&toggleFocused)$('lesson-title').focus({preventScroll:true});
   applyCamera();
 }
-function openTask(tab='learn') {
-  cancelGesture();switchTab(tab);setTaskVisible(true);
-  if(taskSheet.matches)$(tab==='learn'?'lesson-title':'test-tab').focus({preventScroll:true});
+function openTask() {
+  cancelGesture();setTaskVisible(true);
+  if(taskSheet.matches)$('lesson-title').focus({preventScroll:true});
 }
 function returnToBoard() {
   if(taskSheet.matches)setTaskVisible(false);
@@ -1014,7 +1019,7 @@ function bindEvents() {
   $('journey-nav').onclick=()=>toggleJourney();$('sandbox-nav').onclick=()=>loadLevel('sandbox');
   $('close-journey').onclick=()=>toggleJourney(false);$('journey-scrim').onclick=()=>toggleJourney(false);
   $('task-toggle').onclick=()=>{
-    if(taskOpen)setTaskVisible(false);else openTask('learn');
+    if(taskOpen)setTaskVisible(false);else openTask();
   };
   taskSheet.addEventListener('change',()=>setTaskVisible(taskOpen,false));
   $('path-toggle').onchange=e=>setPathVisible(e.target.checked);
@@ -1028,7 +1033,7 @@ function bindEvents() {
     if(e.target.closest('[data-previous]:not(:disabled)'))loadLevel(catalog.levels[lessonIndex()-1].id);
     if(e.target.closest('[data-forward]')){if(progress.completed[current.id])loadLevel(nextLevel()?.id||'sandbox');else showSkip();}
   };
-  $('learn-tab').onclick=()=>switchTab('learn');$('test-tab').onclick=()=>switchTab('test');
+  $('close-results').onclick=()=>$('results-dialog').close();
   $('lesson-list').onclick=e=>{
     const lesson=e.target.closest('[data-level]'),chapter=e.target.closest('[data-chapter]');
     if(lesson)loadLevel(Number(lesson.dataset.level));
@@ -1256,9 +1261,12 @@ async function boot() {
     lastJourney=Number(readStorage('last-lesson',1));if(!catalog.levels.some(l=>l.id===lastJourney))lastJourney=1;
     bindEvents();loadLevel(readStorage('last',1));
     if(!readStorage('welcome',false))showGuide(0);
+    await new Promise(resolve=>setTimeout(resolve,Math.max(0,1100-performance.now())));
+    document.body.classList.remove('app-opening');$('opening').remove();
     platform.onSuspend(flushSave);
     platform.prepareOffline().catch(()=>{ /* Online play remains available if caching is unavailable. */ });
   } catch(e) {
+    document.body.classList.remove('app-opening');$('opening').remove();
     document.querySelector('main').innerHTML=`<div class="error-state"><span class="lesson-tag">THE LAB IS ALMOST READY</span><h1>Let’s reopen the lab.</h1><p>The circuit engine couldn’t start. Reload to try again. Your saved circuits stay on this device.</p><p>${esc(e.message)}</p><button id="retry-button" class="button primary">Try again</button></div>`;
     $('retry-button').onclick=()=>location.reload();
   }

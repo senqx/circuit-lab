@@ -97,3 +97,12 @@ changes should follow screen size and input capability. A native shell does not
 itself make the SVG editor faster. Measure real devices before changing the
 renderer or adding a native engine bridge; emulated viewports cannot establish
 finger accuracy, WebView behavior, battery use, or OS lifecycle correctness.
+
+## Application icons
+
+The shared logo is `src/ui/icon.svg`. Browser PNG fallbacks, mask-safe PWA icons,
+an Apple touch icon, and an opaque 1024px iOS source asset live in `src/ui/icons/`.
+Android uses a vector foreground with a solid background in adaptive launcher
+icons, plus density-specific legacy PNGs. The native launch screen uses the
+foreground without a baked-in square. When adding iOS, put `icon-1024.png` into
+its AppIcon asset catalog; iOS packaging and device validation are still pending.

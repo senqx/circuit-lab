@@ -8,7 +8,7 @@ try {
   await send('Page.enable');await send('Runtime.enable');await send('Network.enable');await send('Performance.enable');
   await send('Network.setCacheDisabled',{cacheDisabled:true});
   await send('Emulation.setDeviceMetricsOverride',{width:1512,height:982,deviceScaleFactor:1,mobile:false});
-  await send('Page.navigate',{url:process.argv[2]||'http://127.0.0.1:18437'});await wait("document.querySelector('[data-node]')");
+  await send('Page.navigate',{url:process.argv[2]||'http://127.0.0.1:18437'});await wait("document.body && !document.body.classList.contains('app-opening') && document.querySelector('[data-node]')");
   if(await js("document.getElementById('modal').open"))await click('.modal-close');
   if(await js("document.body.classList.contains('free-play')"))await click('[data-return]');
   await click('#journey-nav');
@@ -33,9 +33,9 @@ try {
   if(!moved||!still||report.staticDOMMutations!==0||activePaints.length)throw Error('Flow failed to animate independently of browser painting');
   await js('window.__paintObserver.disconnect()');await click('#flow-button');
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:2,mobile:true});await click('#fit-button');await delay(150);
-  await js('window.scrollTo(0,document.documentElement.scrollHeight)');await wait("document.getElementById('canvas-wrap').getBoundingClientRect().bottom<=0");await delay(150);
+  await js("document.querySelector('.studio').style.transform='translateY(-2000px)'");await wait("document.getElementById('canvas-wrap').getBoundingClientRect().bottom<=0");await click('#fit-button');await delay(150);
   report.stopsOffscreen=await js("document.getElementById('signal-flow').getAnimations({subtree:true}).every(a=>a.playState==='paused')");
-  await js('window.scrollTo(0,0)');await delay(150);
+  await js("document.querySelector('.studio').style.transform=''");await click('#fit-button');await delay(150);
   report.resumesOnReturn=await js("document.getElementById('signal-flow').getAnimations({subtree:true}).some(a=>a.playState==='running')");
   if(!report.stopsOffscreen||!report.resumesOnReturn)throw Error('Flow failed viewport visibility checks');
   await send('Emulation.setDeviceMetricsOverride',{width:1512,height:982,deviceScaleFactor:1,mobile:false});await click('#fit-button');

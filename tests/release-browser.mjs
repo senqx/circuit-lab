@@ -11,7 +11,7 @@ export async function releaseChecks({send,js,wait,assert,click}) {
   async function reload(data) {
     const setup=await send('Page.addScriptToEvaluateOnNewDocument',{source:`localStorage.setItem('signal-garden-v2:circuit:sandbox',${JSON.stringify(JSON.stringify(data))});localStorage.setItem('signal-garden-v2:last','"sandbox"');localStorage.setItem('signal-garden-v2:welcome','true');`});
     await js('window.__oldDocument=true');await send('Page.reload');
-    await wait(`!window.__oldDocument && document.querySelector('[data-node]') && ${value}==='0'`);
+    await wait(`document.body && !document.body.classList.contains('app-opening') && !window.__oldDocument && document.querySelector('[data-node]') && ${value}==='0'`);
     await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:setup.identifier});
   }
   await reload(fixture);
@@ -59,7 +59,7 @@ export async function releaseChecks({send,js,wait,assert,click}) {
   const damaged=structuredClone(fixture);damaged.circuit.nodes[1].kind='toString';
   const setup=await send('Page.addScriptToEvaluateOnNewDocument',{source:`localStorage.setItem('signal-garden-v2:circuit:sandbox',${JSON.stringify(JSON.stringify(damaged))});`});
   await js('window.__oldDocument=true');await send('Page.reload');
-  await wait('!window.__oldDocument && document.querySelectorAll("[data-toggle]").length===2');
+  await wait(`document.body && !document.body.classList.contains('app-opening') && !window.__oldDocument && document.querySelectorAll("[data-toggle]").length===2`);
   await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:setup.identifier});
   await assert("!document.querySelector('.error-state') && document.querySelectorAll('[data-wire]').length===0",'A damaged workspace recovers to a playable starter');
 }
