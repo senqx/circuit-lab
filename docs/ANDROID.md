@@ -5,23 +5,29 @@ and C++ engine compiled to WebAssembly. It works from bundled assets, with no
 simulation server, Rust code, Android NDK, or native copy of the circuit engine.
 iOS packaging is the next platform step; desktop users can use the web/PWA.
 
-This is a beta for phone testing. It uses the core
-Capacitor shell without optional native plugins. Android's native file picker
-handles the existing HTML import control; that still needs device verification.
-Export explicitly reports that it is unavailable in this preview, because blob
-downloads need a native sharing adapter. Native Back behavior, lifecycle events,
-and file sharing are the next integrations to test and finish.
+Android uses the official Capacitor App, Filesystem, and Share plugins, plus a
+small CircuitFiles bridge for Android's system Save/Open document dialogs.
+Export lets you choose a location; Share sends a JSON attachment through the
+system chooser. Import accepts local or cloud documents and runs shared circuit
+validation. Cancelling any chooser leaves the circuit intact. No broad storage
+permission is requested.
+
+Back closes the frontmost dialog, journey drawer, active gesture, or compact task
+panel before exiting from the clear board. Native pause/background events flush
+pending saves; local storage restores the circuit after process restart. A file
+picker result restored after process recreation is delivered to shared import
+validation. Physical-device verification remains required.
 
 ## Test the prepared APK on a phone
 
-Open [beta.3 on GitHub Releases](https://github.com/senqx/circuit-lab/releases/tag/v1.0.0-beta.3)
-on the phone and download `circuit-lab-android-preview.apk` from **Assets**.
-Install beta.3 over beta.2 without uninstalling: both use the same application ID
-and signing certificate, and beta.3 increases the version code to 3. Confirm that
+Open [beta.4 on GitHub Releases](https://github.com/senqx/circuit-lab/releases/tag/v1.0.0-beta.4)
+on the phone and download `circuit-lab-android-beta.4.apk` from **Assets**.
+Install beta.4 over beta.3 without uninstalling: both use the same application ID
+and signing certificate, and beta.4 increases the version code to 4. Confirm that
 saved circuits and progress remain after updating.
 
-The prepared APK is `dist/circuit-lab-android-preview.apk`, with a `.sha256`
-checksum beside it. Beta.3 is **3,637,576 bytes (3.64 MB / 3.47 MiB)** and uses the
+The prepared APK is `dist/circuit-lab-android-beta.4.apk`, with a `.sha256`
+checksum beside it. Beta.4 is **3,744,565 bytes (3.74 MB / 3.57 MiB)** and uses the
 local preview certificate, not a production signing identity. Build outputs and
 signing material remain ignored and excluded from release sources.
 
@@ -42,8 +48,7 @@ For an initial test:
 - Build part of a lesson, wait a moment, switch to another app, and return. Close
   and reopen CircuIT Lab too; the circuit and progress should remain.
 - Try importing a circuit JSON file exported from the web version; also cancel
-  the file picker. Export from the Android preview currently reports that it is
-  unavailable.
+  the file picker. Export with the system Save dialog and share the circuit as a JSON attachment.
 
 When reporting a problem, include the phone model, Android version, the action
 that triggered it, and what appeared on screen. Note whether it happened only in
@@ -111,8 +116,8 @@ ID and signing identity before distribution; the preview ID is
 `io.github.senqx.circuitlab`.
 
 The prepared preview was signed separately with the SDK's `apksigner` and checked
-with `apksigner verify` and `zipalign -c 4`. Its local key and password are under
-ignored `build-tools/android-preview/`; they are excluded from source packaging.
+with `apksigner verify` and `zipalign -c 4`. Keep the key and password outside the repository in an owner-only directory.
+This device uses `~/.local/share/circuit-lab-private/android-preview/`.
 Unsigned release outputs and the AAB cannot be installed by tapping them. Use a
 signed APK for direct phone testing.
 

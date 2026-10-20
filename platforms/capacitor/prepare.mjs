@@ -1,6 +1,7 @@
 // Adapt the generated application at packaging time, keeping one editable UI.
 import { cp, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { build } from 'esbuild';
 import { fileURLToPath } from 'node:url';
 
 const shell = path.dirname(fileURLToPath(import.meta.url));
@@ -17,7 +18,7 @@ try {
   const stage = await mkdtemp(path.join(root, 'dist/mobile-'));
   try {
     await cp(source, stage, { recursive: true });
-    await cp(path.join(shell, 'entry.mjs'), path.join(stage, 'native.mjs'));
+    await build({entryPoints:[path.join(shell,'entry.mjs')],outfile:path.join(stage,'native.mjs'),bundle:true,format:'esm',platform:'browser',target:'es2022',external:['./app.js','./platform.mjs']});
     await writeFile(path.join(stage, 'index.html'), html.replace(entry, '<script type="module" src="native.mjs"></script>'));
     await rm(destination, { recursive: true, force: true });
     await rename(stage, destination);

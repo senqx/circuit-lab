@@ -1,9 +1,13 @@
+import { Capacitor, registerPlugin } from '@capacitor/core';
+import { App } from '@capacitor/app';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import { platform } from './platform.mjs';
+import { installNativePlatform } from './native-platform.mjs';
 
-// Native packages contain the complete app; updates arrive with the package.
-platform.prepareOffline = async () => {};
-// Blob downloads need a native sharing adapter before the mobile release.
-platform.exportFile = async () => {
-  throw new Error('Circuit export is not available in this mobile preview yet.');
-};
+if(Capacitor.isNativePlatform()) {
+  installNativePlatform(platform,{App,Files:registerPlugin('CircuitFiles'),Filesystem,Share,Directory,Encoding},message=>{
+    const toast=document.getElementById('toast');if(toast){toast.textContent=message;toast.hidden=false;}
+  });
+} else platform.prepareOffline=async()=>{};
 await import('./app.js');

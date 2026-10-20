@@ -37,8 +37,6 @@ try {
   await wait(`document.body && !document.body.classList.contains('app-opening') && !window.__oldDocument && ${output}==='1'`);
   await assert('!document.getElementById("modal").open', 'The packaged entry restores saved work after reloading');
   await click('#back-to-board');await wait("document.getElementById('inspector').hidden");
-  await click('#export-button');
-  await assert("document.getElementById('toast').textContent.includes('not available in this mobile preview')", 'The core-only preview reports unsupported export instead of claiming a file was saved');
 
   const results = await js(`(async()=>{
     const {engine}=await import(new URL('engine/client.mjs',document.baseURI));

@@ -106,3 +106,18 @@ Android uses a vector foreground with a solid background in adaptive launcher
 icons, plus density-specific legacy PNGs. The native launch screen uses the
 foreground without a baked-in square. When adding iOS, put `icon-1024.png` into
 its AppIcon asset catalog; iOS packaging and device validation are still pending.
+
+## Native Android controls
+
+`entry.mjs` bundles the official Capacitor App, Filesystem and Share bindings.
+`native-platform.mjs` installs save/share, lifecycle, Back and restored-import
+capabilities before the shared editor starts. `CircuitFilesPlugin.java` uses
+Android's system document picker for saving and importing UTF-8 JSON with a
+1 MB bound and explicit cancellation. The shared application validates graphs
+and lesson identity. Share attachments are written to private cache, exposed
+through the native sharing provider, and retained for recipient access.
+
+Credentials and signing files belong outside the repository. This device uses
+owner-only `~/.local/share/circuit-lab-private/`; its Git helper points at that
+location. iOS lifecycle/share bindings can be reused, but the CircuitFiles Save/
+Open bridge needs an iOS implementation in the future Xcode project.

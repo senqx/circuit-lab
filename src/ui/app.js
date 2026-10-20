@@ -17,6 +17,7 @@ const icons = {
   help:'<circle cx="12" cy="12" r="9"/><path d="M9.3 9a2.8 2.8 0 0 1 5.4 1c0 2-2.7 2-2.7 4m0 3h.01"/>',
   book:'<path d="M12 6v15M3 4c4-1 6 0 9 2 3-2 5-3 9-2v15c-4-1-6 0-9 2-3-2-5-3-9-2Z"/>',
   undo:'<path d="m9 4-5 5 5 5M4 9h10a6 6 0 0 1 0 12"/>', redo:'<path d="m15 4 5 5-5 5m5-5H10a6 6 0 0 0 0 12"/>',
+  share:'<circle cx="6" cy="12" r="3"/><circle cx="18" cy="5" r="3"/><circle cx="18" cy="19" r="3"/><path d="m9 10 6-4m-6 8 6 4"/>',
   download:'<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>', upload:'<path d="M12 16V4m-5 5 5-5 5 5M4 16v5h16v-5"/>',
   reset:'<path d="M3 10a9 9 0 1 1 2 8M3 4v6h6"/>',
   panel:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16m-6-12 3 4-3 4"/>',
@@ -271,6 +272,12 @@ function renderBoard() {
     }
     el.setAttribute('transform',`translate(${n.x} ${n.y})`);
   }
+  // Later nodes paint above earlier nodes, including after undo/import replaces elements.
+  const layer=$('nodes');
+  graph.nodes.forEach((n,index)=>{
+    const el=nodeElements.get(n.id),at=layer.children[index];
+    if(at!==el)layer.insertBefore(el,at||null);
+  });
   const keys=new Set(graph.wires.map(wireKey));
   for(const [key,el] of wireElements)if(!keys.has(key)){el.remove();wireElements.delete(key);flow.remove(key);}
   graph.wires.forEach((w,index)=>{
@@ -380,11 +387,20 @@ function nearestPin(event,opposite=false) {
   const r=canvas.getBoundingClientRect();
   if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)return null;
   const point=worldPoint(event);
+  const hit=document.elementFromPoint(event.clientX,event.clientY);
+  const owner=hit?.closest('[data-node]');
+  if(hit&&!canvas.contains(hit))return null;
   let nearest=null,distance=(event.pointerType==='touch'?20:15)/camera.scale;
-  for(const n of graph.nodes)for(const output of [false,true]) {
+  for(const n of [...graph.nodes].reverse())for(const output of [false,true]) {
+    if(owner&&Number(owner.dataset.node)!==n.id)continue;
     if((n.kind==='INPUT'&&!output)||(n.kind==='OUTPUT'&&output)||(opposite&&pending?.output===output))continue;
     portsFor(n,output).forEach((_,index)=>{
       const p=pinPoint(n,index,output),d=Math.hypot(p.x-point.x,p.y-point.y);
+      const matrix=nodeElements.get(n.id)?.getScreenCTM();
+      if(!matrix)return;
+      const screen=new DOMPoint(p.x-n.x,p.y-n.y).matrixTransform(matrix);
+      const visible=document.elementFromPoint(screen.x,screen.y)?.closest('[data-node]');
+      if(!visible||Number(visible.dataset.node)!==n.id)return;
       if(d<distance){distance=d;nearest=`${n.id}:${index}:${output?1:0}`;}
     });
   }
@@ -953,9 +969,9 @@ function showExample() {
     try{const g=await engine.request('reference',{level:id});if(g.error)throw new Error(g.error);if(rev!==revision)return;remember();graph=layout(g);practice=true;selected.clear();pending=null;changed();renderLearn();fit();$('modal').close();if(taskSheet.matches)returnToBoard();toast('Follow a signal through the circuit. Undo returns to your design.');}catch(e){toast(e.message,'error');}
   };
 }
-async function exportCircuit() {
+async function exportCircuit(share=false) {
   const data={version:2,level:activeKey(),circuit:graph,inputs,practice};
-  try {if(await platform.exportFile(`circuit-${activeKey()}.json`,JSON.stringify(data,null,2)))toast('Circuit exported. A little idea to keep.');}
+  try {if(await (share?platform.shareFile:platform.exportFile)(`circuit-${activeKey()}.json`,JSON.stringify(data,null,2)))toast(share?'Circuit shared.':'Circuit exported. A little idea to keep.');}
   catch(e){toast(e.message||'This circuit could not be exported.','error');}
 }
 async function importCircuit(file) {
@@ -973,6 +989,14 @@ async function importCircuit(file) {
   } catch(e){toast(e.message||'This circuit file could not be read.','error');}
 }
 
+export function handleBack() {
+  const dialogs=[...document.querySelectorAll('dialog[open]')];
+  if(dialogs.length){dialogs.at(-1).close();return true;}
+  if($('journey-sidebar').classList.contains('open')){toggleJourney(false);return true;}
+  if(pending||drag||inventoryActive){cancelGesture();return true;}
+  if(taskSheet.matches&&taskOpen){setTaskVisible(false);return true;}
+  return false;
+}
 function bindEvents() {
   document.addEventListener('click',event=>{
     if(event.target.closest('[data-design-notes]'))showGuide(handbookSpreads.findIndex(spread=>spread.id==='design')*2);
@@ -1012,7 +1036,10 @@ function bindEvents() {
   };
   $('check-button').onclick=checkCircuit;$('clear-button').onclick=clearBoard;
   $('delete-button').onclick=deleteSelected;
-  $('export-button').onclick=exportCircuit;$('import-button').onclick=platform.bindFileImport(importCircuit);
+  $('export-button').onclick=()=>exportCircuit();
+  $('share-button').hidden=!platform.shareFile;
+  $('share-button').innerHTML=icon('share');
+  $('share-button').onclick=()=>exportCircuit(true);$('import-button').onclick=platform.bindFileImport(importCircuit);
   $('zoom-in').onclick=()=>zoom(1.2);$('zoom-out').onclick=()=>zoom(1/1.2);
   $('tick-button').onclick=()=>runSimulation(true);
   $('reset-clock').onclick=()=>{memory={};ticks=0;++revision;renderClock();runSimulation();toast('Memory reset to zero.');};
@@ -1264,6 +1291,13 @@ async function boot() {
     await new Promise(resolve=>setTimeout(resolve,Math.max(0,1100-performance.now())));
     document.body.classList.remove('app-opening');$('opening').remove();
     platform.onSuspend(flushSave);
+    platform.bindBack(handleBack);
+    const restoreImport=()=>{
+      const data=platform.restoredImport;if(!data)return;
+      platform.restoredImport=null;
+      importCircuit(new File([data.contents],data.name||'circuit.json',{type:'application/json'}));
+    };
+    document.addEventListener('circuit-restored-import',restoreImport);restoreImport();
     platform.prepareOffline().catch(()=>{ /* Online play remains available if caching is unavailable. */ });
   } catch(e) {
     document.body.classList.remove('app-opening');$('opening').remove();

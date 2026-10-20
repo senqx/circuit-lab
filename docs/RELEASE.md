@@ -244,3 +244,31 @@ installation/upgrade testing, iOS packaging, and production signing remain
 pending. Existing preview signing and project GitHub credentials were recovered
 from the device snapshot into ignored `build-tools/`; they are excluded from
 Git and release downloads.
+
+## Android beta.4 — native controls and overlap selection
+
+Version code 4 adds native Back priority, pause/background save flushing, Android
+Save/Open document dialogs, and JSON attachment sharing. Capacitor App 8.1.2,
+Filesystem 8.1.5, and Share 8.0.3 are pinned. The entry is bundled with esbuild;
+Android document access is isolated in CircuitFilesPlugin and shared validation
+still owns circuit acceptance. No broad storage permission is required.
+
+Signed artifact: `dist/circuit-lab-android-beta.4.apk`, 3,744,565 bytes,
+with a SHA-256 file beside it. Certificate matches prior previews; signatures,
+alignment, and all 32 packaged assets verified. Android assembleRelease and
+lintRelease passed, as did adapter cancellation/save tests, Back/action UI tests,
+mobile packaging, routing/geometry, and the packaged mobile browser suite with
+all 24 lessons / 2,458 cases. Native document/chooser behavior and process-kill
+recovery require physical Android testing. The APK and checksum are the beta.4
+GitHub prerelease downloads.
+
+Signing files and GitHub credentials now reside outside the checkout under
+owner-only `~/.local/share/circuit-lab-private/`. Git uses the relocated login;
+the old credential copies were removed from build-tools.
+
+Overlap targeting now follows SVG paint order: upper blocks and visible pins win,
+covered pins cannot steal clicks, and undo/import keep node layers consistent.
+Mouse/touch overlap regressions and the rerouting suite passed. The beta.4
+APK was rebuilt and its signature and alignment verified.
+
+Beta.4 APK SHA-256: `fea8a260ab5119206a697ef6252bde38fcc13ed02ab2ce113492f284eb21739f`.

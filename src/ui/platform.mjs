@@ -1,5 +1,7 @@
 // Device capabilities live here; circuit editing and file formats stay shared.
 export const platform={
+  bindBack(){},
+  shareFile:null,
   readText(key){return localStorage.getItem(key);},
   writeText(key,value){localStorage.setItem(key,value);},
   async exportFile(name,contents){

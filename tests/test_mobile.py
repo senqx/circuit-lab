@@ -17,8 +17,9 @@ class MobilePackagingTests(unittest.TestCase):
             root = Path(temporary)
             shell = root / "platforms/capacitor"
             shell.mkdir(parents=True)
-            for name in ("prepare.mjs", "entry.mjs"):
+            for name in ("prepare.mjs", "entry.mjs", "native-platform.mjs"):
                 shutil.copyfile(ROOT / "platforms/capacitor" / name, shell / name)
+            (shell / "node_modules").symlink_to(ROOT / "platforms/capacitor/node_modules", target_is_directory=True)
             files = {
                 "index.html": b'<script type="module" src="app.js"></script>',
                 "app.js": b"// Shared editor fixture",
@@ -42,7 +43,7 @@ class MobilePackagingTests(unittest.TestCase):
                 self.assertEqual((root / "dist/app" / name).read_bytes(), content)
                 expected = content.replace(b'src="app.js"', b'src="native.mjs"') if name == "index.html" else content
                 self.assertEqual((mobile / name).read_bytes(), expected)
-            self.assertEqual((mobile / "native.mjs").read_bytes(), (shell / "entry.mjs").read_bytes())
+            self.assertIn(b"installNativePlatform", (mobile / "native.mjs").read_bytes())
             self.assertEqual((shell / "android/app/src/main/res/drawable-nodpi/circuit_icon.png").read_bytes(), files["icons/icon-512.png"])
 
             before = {p.relative_to(mobile): p.read_bytes() for p in mobile.rglob("*") if p.is_file()}
