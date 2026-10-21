@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+<rect width="1024" height="500" fill="#17252c"/>
+<g fill="none" stroke="#2b4049" stroke-width="2"><path d="M0 90H680V30H1024M0 410H730V460H1024M750 0V140H1024M825 500V360H1024"/></g>
+<g fill="none" stroke="#e8b66e" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"><path d="M760 170v120a56 56 0 0 0 56 56h105M840 170v104M760 346v16"/><path d="M840 274h81" stroke="#a2c5d9"/></g>
+<g fill="#e8b66e"><circle cx="760" cy="170" r="16"/><circle cx="840" cy="170" r="16"/><circle cx="921" cy="346" r="16"/><circle cx="760" cy="362" r="16"/></g><circle cx="921" cy="274" r="16" fill="#a2c5d9"/>
+<text x="64" y="220" font-family="Montserrat, sans-serif" font-size="70" font-weight="600" fill="#f2eee2">Circu<tspan fill="#e8b66e">IT</tspan> Lab</text>
+<text x="68" y="282" font-family="Montserrat, sans-serif" font-size="25" fill="#a2c5d9">Switch it. Wire it. Make it work.</text>
+<text x="68" y="335" font-family="Montserrat, sans-serif" font-size="18" fill="#bcc8ca">Discover logic. Build circuits.</text>
+</svg>
