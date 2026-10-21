@@ -117,6 +117,7 @@ struct Level {
   std::string scene;
   std::vector<std::string> steps;
   std::vector<std::vector<int>> exampleInputs; //!< Examples drawn from the full specification.
+  int depthTarget = 0;
   int nandTarget = 0;                          //!< Optional challenge; correctness still completes the lesson.
   std::string nandHint;
 };
@@ -150,6 +151,20 @@ struct NandChallenge {
   bool achieved = false;
 };
 
+struct DesignScore {
+  int area = 0;
+  int depth = 0;
+  int areaTarget = 0;
+  int depthTarget = 0;
+  bool supported = false;
+  bool areaStar = false;
+  bool depthStar = false;
+  int switching = 0;
+  int switchingTarget = 0;
+  int switchingTransitions = 0; // Divide switching totals by this for mean activity.
+  bool powerStar = false;
+};
+
 struct Check {
   bool passed = false;
   int total = 0;
@@ -157,6 +172,7 @@ struct Check {
   std::string error;
   std::vector<TestRow> rows; //!< Full specification in order, with actual outputs.
   NandChallenge nand;
+  DesignScore design;
 };
 
 const std::vector<Component>& components();

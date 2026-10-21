@@ -11,7 +11,7 @@ export async function handbookLaunchChecks({send,js,wait,assert,screenshot,url})
       await send('Storage.clearDataForOrigin',{origin:new URL(url).origin,storageTypes:'all'});
       await send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:false});
       await send('Page.navigate',{url});await wait(firstPage);
-      await assert(`document.querySelectorAll('.book-page').length===${width<=760?1:2} && (${firstPage})===${JSON.stringify(width<=760?'1 / 8':'1–2 / 8')} && localStorage.getItem('signal-garden-v2:welcome')===null`,`${width}px first visit automatically opens the correct number of handbook pages`);
+      await assert(`document.querySelectorAll('.book-page').length===${width<=760?1:2} && (${firstPage})===${JSON.stringify(width<=760?'1 / 10':'1–2 / 10')} && localStorage.getItem('signal-garden-v2:welcome')===null`,`${width}px first visit automatically opens the correct number of handbook pages`);
       await assert("getComputedStyle(document.getElementById('book-spread')).gridTemplateColumns.split(' ').length===document.querySelectorAll('.book-page').length",'The initial handbook layout matches its rendered pages');
       if(width===360) {
         await screenshot('handbook-first-navigation.png');
@@ -19,7 +19,7 @@ export async function handbookLaunchChecks({send,js,wait,assert,screenshot,url})
         await send('Network.emulateNetworkConditions',{offline:true,latency:0,downloadThroughput:0,uploadThroughput:0});
         await js('window.__oldDocument=true');await send('Page.reload');
         await wait(`document.body && !document.body.classList.contains('app-opening') && !window.__oldDocument && (${firstPage})`);
-        await assert(`document.querySelectorAll('.book-page').length===1 && (${firstPage})==='1 / 8'`,'The cached welcome handbook also starts with one page while offline');
+        await assert(`document.querySelectorAll('.book-page').length===1 && (${firstPage})==='1 / 10'`,'The cached welcome handbook also starts with one page while offline');
         await send('Network.emulateNetworkConditions',{offline:false,latency:0,downloadThroughput:-1,uploadThroughput:-1});
       }
     }
@@ -64,25 +64,25 @@ export async function portraitChecks({send,js,wait,assert,click:pressButton,key,
   await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:fresh.identifier});
   const bookCount="document.querySelector('.book-return [aria-live]').textContent";
   async function turn(selector) {await click(selector);await wait("!document.getElementById('modal').dataset.turning");}
-  await assert(`document.querySelectorAll('.book-page').length===1 && ${bookCount}==='1 / 8' && document.getElementById('guide-next').textContent.includes('Meet the ingredients')`,'The narrow handbook shows one page and names the next individual page');
+  await assert(`document.querySelectorAll('.book-page').length===1 && ${bookCount}==='1 / 10' && document.getElementById('guide-next').textContent.includes('Meet the ingredients')`,'The narrow handbook shows one page and names the next individual page');
   await screenshot('handbook-single-first.png');
   await pressButton('#guide-next');
   await assert("document.querySelectorAll('.book-page').length===1 && document.querySelector('.book-page').getAnimations().some(a=>a.effect.getKeyframes().some(f=>f.transform?.startsWith('translateX(')))",'The single handbook page uses a horizontal slide instead of a spine rotation');
   await wait("!document.getElementById('modal').dataset.turning");
-  await assert(`${bookCount}==='2 / 8' && document.querySelector('.book-page h2').textContent.includes('ingredients')`,'The second page replaces the first instead of appearing underneath it');
+  await assert(`${bookCount}==='2 / 10' && document.querySelector('.book-page h2').textContent.includes('ingredients')`,'The second page replaces the first instead of appearing underneath it');
   for(const width of [760,761,900,600,320]) {
     await viewport(width,844);
-    await assert(`document.querySelectorAll('.book-page').length===${width<=760?1:2} && ${bookCount}===${JSON.stringify(width<=760?'2 / 8':'1–2 / 8')} && document.getElementById('modal').scrollWidth<=document.getElementById('modal').clientWidth`,`${width}px handbook preserves the current page across its single/two-page boundary`);
+    await assert(`document.querySelectorAll('.book-page').length===${width<=760?1:2} && ${bookCount}===${JSON.stringify(width<=760?'2 / 10':'1–2 / 10')} && document.getElementById('modal').scrollWidth<=document.getElementById('modal').clientWidth`,`${width}px handbook preserves the current page across its single/two-page boundary`);
     await assert(visible('#close-guide'),`${width}px handbook keeps its return action visible`);
   }
   await viewport(390,844);
-  for(let page=3;page<=8;page++) {
+  for(let page=3;page<=10;page++) {
     await turn('#guide-next');
-    await assert(`document.querySelectorAll('.book-page').length===1 && ${bookCount}==='${page} / 8'`, `Narrow handbook reaches page ${page} of 8 without skipping any content`);
+    await assert(`document.querySelectorAll('.book-page').length===1 && ${bookCount}==='${page} / 10'`, `Narrow handbook reaches page ${page} of 10 without skipping any content`);
   }
   await assert("document.getElementById('guide-next').disabled",'The last single page disables Next');
-  await turn('#guide-previous');await assert(`${bookCount}==='7 / 8'`,'Previous returns exactly one page in a narrow window');
-  await click('[data-guide-spread="2"]');await assert(`${bookCount}==='5 / 8'`,'Handbook contents opens the first page of the selected topic');
+  await turn('#guide-previous');await assert(`${bookCount}==='9 / 10'`,'Previous returns exactly one page in a narrow window');
+  await click('[data-guide-spread="2"]');await assert(`${bookCount}==='5 / 10'`,'Handbook contents opens the first page of the selected topic');
   await turn('#guide-next');await screenshot('handbook-single-design.png');
   await pressButton('#guide-previous');await viewport(900,844);
   await wait("!document.getElementById('modal').dataset.turning");
@@ -90,7 +90,7 @@ export async function portraitChecks({send,js,wait,assert,click:pressButton,key,
   await viewport(360,640);await click('#guide-home');
   await send('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]});
   await turn('#guide-next');
-  await assert(`${bookCount}==='2 / 8' && !document.getElementById('modal').getAnimations({subtree:true}).length`,'Reduced motion still advances one handbook page without animation');
+  await assert(`${bookCount}==='2 / 10' && !document.getElementById('modal').getAnimations({subtree:true}).length`,'Reduced motion still advances one handbook page without animation');
   await send('Emulation.setEmulatedMedia',{features:[]});
   await click('#close-guide');
   await assert(`${visible('#lesson-title')} && ${visible('#back-to-board')} && ${visible('#check-button')}`,'First portrait launch shows the mission and a visible way to build and check');
@@ -104,9 +104,8 @@ export async function portraitChecks({send,js,wait,assert,click:pressButton,key,
   await screenshot('portrait-workbench.png');
 
   await click('#check-button');await wait("document.querySelector('.test-badge.failure')");
-  await wait(visible('#test-tab'));
-  await assert(`${visible('#test-tab')} && ${visible('#check-button')}`,'Checking an unfinished circuit opens its feedback in the visible drawer');
-  await closeTask();await click('#expected-button');
+  await assert("document.getElementById('results-dialog').open && !!document.querySelector('#test-panel .test-badge.failure')",'Checking an unfinished circuit opens separate grading feedback');
+  await click('#close-results');await closeTask();await click('#expected-button');
   await assert(`${closed} && document.getElementById('expected-dialog').open && document.querySelectorAll('#expected-panel tbody tr').length===2 && !document.querySelector('#expected-dialog [role=tab],#expected-dialog .test-badge')`,'Expected results opens its own reference sheet without task tabs or grading feedback');
   await assert(`${visible('#expected-title')} && ${visible('#expected-done')}`,'The results title and return button stay visible');
   await screenshot('expected-reference.png');
@@ -157,16 +156,17 @@ export async function portraitChecks({send,js,wait,assert,click:pressButton,key,
 
   await viewport(390,844);await choose(14,2);
   await click('#example-button');await click('#load-example');await wait(closed);
-  await click('#task-toggle');await click('#learn-panel [data-all-cases]');
-  await assert("document.getElementById('expected-dialog').open && document.getElementById('task-toggle').getAttribute('aria-expanded')==='true'",'A task example can open the separate full reference');
+  await click('#expected-button');
+  await assert("document.getElementById('expected-dialog').open && document.getElementById('task-toggle').getAttribute('aria-expanded')==='false'",'Expected results can open the separate full reference and return to the board');
   await click('#expected-done');await wait(closed);
   await assert("!document.getElementById('expected-dialog').open && document.activeElement.id==='canvas'",'Back to circuit returns to the board even when expectations were opened from the task');
   await click('#expected-button');
   await assert("document.querySelectorAll('#expected-panel tbody tr').length===16 && document.querySelector('#expected-panel .table-paging span').textContent==='1 / 16'",'Multibit expected results keep every case available through pagination');
   await click('#expected-panel [data-test-page="1"]');
   await assert("document.querySelector('#expected-panel .table-paging span').textContent==='2 / 16'",'Expected case pages work inside the separate reference sheet');
-  await click('#expected-done');await click('#task-toggle');
-  await click('#learn-panel [data-inputs="[10,12]"]');
+  await click('#expected-done');await click('#expected-button');
+  for(let page=1;page<=10;++page)await click(`#expected-panel [data-test-page="${page}"]`);
+  await click('#expected-panel [data-inputs="[10,12]"]');
   await wait(`${closed} && ${value(50)}==='8'`);
   await assert(`${value(1)}==='10' && ${value(2)}==='12'`,'Selecting a multibit example applies its actual numbers through WASM');
   await screenshot('portrait-bus-inputs.png');

@@ -56,9 +56,7 @@ Lesson circuits use input IDs `1, 2, …` and output IDs `50, 51, …`. `check` 
 
 Call `components()`, `chapters()`, and `levels()` for immutable metadata. Chapter entries contain a name and learning goal; the HTTP catalog serializes them as objects in its `chapters` array. `component(kind)` provides ports, widths, display text, and the composite definition. A lesson's `allowed` list controls its inventory: recipe parts first, then previously introduced logic blocks. It is not a checker whitelist. Guided first-step text and scene identifiers also live in this catalog. `isSequential(kind)` derives memory use from the component definition, so UIs do not maintain separate lists of memory chip types.
 
-Eight lessons also offer optional two-input NAND benchmarks: NOT 1, AND 2, OR 3, XOR 4, MUX 4, DEMUX 5, half adder 5, and full adder 9. `Level::nandTarget` and `nandHint` define them; zero disables the challenge. `Check::nand` reports the target, visible NAND count, other-part count, eligibility, and achievement. A correct circuit using only NANDs plus lesson terminals is eligible; reaching or beating the target earns the challenge. Every visible block counts, including unused ones. Mixed-gate solutions still complete a lesson. These are achievable teaching benchmarks in a specific gate library, not a physical area/delay/power optimizer.
-
-The shared C serializer exposes `nandChallenge` in catalog and check results (or `null` when absent). The UI saves the lowest eligible count as `bestNands` alongside existing completion data. Worked examples never record completion or a best count. The handbook's Circuit design spread teaches sum of products, Boolean identities, De Morgan's law, and sharing intermediate signals.
+Eight lessons offer optional PPA teaching targets; see [PPA teaching stars](#ppa-teaching-stars) for scoring. The catalog retains `nandChallenge`, `Level::nandTarget` and `nandHint` as compatibility fields, with `depthTarget` added for Performance. The check serializer exposes `designScore`. The UI persists independent `stars` flags alongside completion; worked examples award neither. Legacy `Check::nand` counts remain available to API clients but no longer control UI awards. The handbook covers sum of products, Boolean identities, NAND construction and PPA tradeoffs.
 
 `levels()` returns journey order; `level(id)` looks up a stable saved identifier. Never index the vector with `id - 1`: NAND moved before NOT and AND while retaining all existing lesson IDs. `testVectors(id)` provides every expected row, in input order, or a consecutive stateful trace from zero memory. The HTTP catalog exposes those rows as `tests` and selected bus inputs as `exampleInputs` (`Level::exampleInputs` in C++). UIs find those inputs in the existing rows to show useful examples without duplicating evaluation logic. Memory traces start with illustrative capture/hold operations before exercising the full range.
 
@@ -216,3 +214,27 @@ The UI has a left symbol tray, a right instruction card, and a distinct Free pla
 Tasks show the goal, target component name from the C++ catalog, expectations, and optional hints. Playing instructions live in the handbook, which opens on first launch at How to play and can be reopened without resetting work. The existing welcome storage flag is retained, so returning players are not interrupted again. Early experiments highlight useful pins and the Check button without an instruction overlay. The header handbook button and ? reopen the book; no redundant task-panel link remains. Only `check` completes an experiment. Page turns animate the outgoing and incoming leaves with native transform animations. They run only during a turn, cancel when the book closes, and are skipped for reduced motion.
 
 Lesson reset restores the starter circuit and zeroes inputs; free-play clearing empties the board. Both use the existing undo mechanism, including restoration of input values. Import/export continue using the version 2 circuit format. The editor checks renderer-facing graph shape, known parts, matching pin widths, unique receivers, and coordinate bounds before accepting a file or save. The C++ engine independently validates every submitted circuit. Malformed imports leave the current board intact; damaged saves fall back to a starter. New parts reuse available IDs so imported maximum-ID circuits remain editable.
+
+## PPA teaching stars
+
+Eight challenge lessons now expose `designScore` with independent Power, Performance,
+and Area stars. These names introduce real PPA goals through simplified estimates;
+they are not a physical chip assessment. Correctness alone completes a lesson. The UI accumulates each
+star across successful player circuits; worked examples award none. Old
+NAND-only awards remain in saved data but do not automatically become PPA stars.
+
+Area recursively expands combinational components to two-input NAND equivalents,
+stopping at NAND (so NOT costs one). All placed gates count, including unused
+ones. Performance uses output depth, which counts the longest expanded NAND path. Power counts changes
+in settled internal NAND-equivalent gate outputs for every directed pair of truth-table
+rows differing in exactly one input bit. The UI divides the total by
+`switchingTransitions` to show the average gate outputs switching per input change,
+and compares with the reference circuit. Every transition and output has equal weight. This is activity, not watts:
+no glitches, load capacitance, voltage, leakage or physical timing are modeled.
+Unsupported primitive/sequential designs can still pass but earn no PPA stars.
+The current scope is the eight small combinational challenges; other lessons
+retain ordinary completion without artificial PPA targets. For every current PPA lesson, a tested construction meets all three targets
+simultaneously. Keep this regression check when changing targets or scoring so
+three-star completion remains achievable with one circuit. References also verify
+achievable power targets.
+No minimum or Pareto-optimality claim is made.

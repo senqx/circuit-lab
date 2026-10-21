@@ -1001,6 +1001,9 @@ const std::vector<Level>& levels() {
       const auto goal = nandGoals.find(r_lesson.target);
       if (goal != nandGoals.end()) {
         r_lesson.nandTarget = goal->second.first;
+        const std::map<Kind, int> depths = {{Kind::Not,1},{Kind::And,2},{Kind::Or,2},
+            {Kind::Xor,3},{Kind::Mux,3},{Kind::Demux,3},{Kind::HalfAdder,3},{Kind::FullAdder,6}};
+        r_lesson.depthTarget = depths.at(r_lesson.target);
         r_lesson.nandHint = goal->second.second;
       }
 

@@ -12,6 +12,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clone = (x) => structuredClone(x);
 const icons = {
+  star:'<path d="m12 2.5 2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3.1-5.8 3.1 1.1-6.5L2.6 9.3l6.5-.9Z"/>',
   chevronUp:'<path d="m6 15 6-6 6 6"/>',
   play:'<path d="m8 5 11 7-11 7Z"/>', check:'<path d="m5 12 4 4L19 6"/>',
   help:'<circle cx="12" cy="12" r="9"/><path d="M9.3 9a2.8 2.8 0 0 1 5.4 1c0 2-2.7 2-2.7 4m0 3h.01"/>',
@@ -594,6 +595,7 @@ function loadLevel(id) {
   ++revision;++simTicket;
   toggleJourney(false);
   renderLevel();save();fit();scheduleSimulation();
+  if(mode==='journey'&&current.nandChallenge&&readStorage('welcome',false)&&!readStorage('ppa-introduced',false))showPpaIntroduction();
   $('learning-path').querySelector('[aria-current]')?.scrollIntoView({block:'nearest',inline:'center'});
 }
 function renderSidebar() {
@@ -615,7 +617,7 @@ function renderSidebar() {
     : `<button data-previous ${lessonIndex()===0?'disabled':''} title="Reopen the previous experiment with your saved circuit">← Previous</button><span>${lessonNumber()} / ${catalog.levels.length}</span><button data-forward>${progress.completed[current.id]?(!nextLevel()?'Free play mode':'Next'):'Skip'} →</button>`;
   $('lesson-list').innerHTML=catalog.chapters.map((chapter,index)=>{
     const lessons=catalog.levels.filter(l=>l.chapter===index),allDone=lessons.every(l=>progress.completed[l.id]);
-    return `<section class="chapter"><button class="chapter-toggle" data-chapter="${index}" aria-expanded="${openChapters.has(index)}"><span class="chapter-number">${String(index+1).padStart(2,'0')}</span>${esc(chapter.name)}<span class="${allDone?'chapter-check':'chevron'}">${allDone?'✓':openChapters.has(index)?'−':'+'}</span></button><div ${openChapters.has(index)?'':'hidden'}><p class="chapter-goal">${esc(chapter.goal)}</p>${lessons.map(l=>`<button class="lesson-link ${progress.completed[l.id]?'done':''} ${mode==='journey'&&current.id===l.id?'active':''}" data-level="${l.id}" ${mode==='journey'&&current.id===l.id?'aria-current="step"':''}><span class="lesson-bullet">${progress.completed[l.id]?(l.nandChallenge&&bestNands(l.id)!==null&&bestNands(l.id)<=l.nandChallenge.target?'★':'✓'):String(lessonNumber(l.id)).padStart(2,'0')}</span><span>${esc(l.title)}</span>${mode==='journey'&&current.id===l.id?'<span class="current-arrow">›</span>':''}</button>`).join('')}</div></section>`;
+    return `<section class="chapter"><button class="chapter-toggle" data-chapter="${index}" aria-expanded="${openChapters.has(index)}"><span class="chapter-number">${String(index+1).padStart(2,'0')}</span>${esc(chapter.name)}<span class="${allDone?'chapter-check':'chevron'}">${allDone?'✓':openChapters.has(index)?'−':'+'}</span></button><div ${openChapters.has(index)?'':'hidden'}><p class="chapter-goal">${esc(chapter.goal)}</p>${lessons.map(l=>`<button class="lesson-link ${progress.completed[l.id]?'done':''} ${isMastered(l.id)?'mastered':''} ${mode==='journey'&&current.id===l.id?'active':''}" data-level="${l.id}" ${mode==='journey'&&current.id===l.id?'aria-current="step"':''}><span class="lesson-bullet">${progress.completed[l.id]?icon(isMastered(l.id)?'star':'check'):String(lessonNumber(l.id)).padStart(2,'0')}</span><span>${esc(l.title)}</span>${progress.completed[l.id]&&l.nandChallenge?`<span class="journey-stars" aria-label="${earnedStars(l.id)} of 3 stars">${earnedStars(l.id)}/3 ${icon('star')}</span>`:''}${mode==='journey'&&current.id===l.id?'<span class="current-arrow">›</span>':''}</button>`).join('')}</div></section>`;
   }).join('');
 }
 function renderLevel() {
@@ -658,16 +660,28 @@ function bestNands(id=current.id) {
   const best=progress.completed[id]?.bestNands;
   return Number.isInteger(best)&&best>=0&&best<=512?best:null;
 }
+const starKeys=['areaStar','depthStar','powerStar'];
+function earnedStars(id=current.id){return starKeys.filter(key=>progress.completed[id]?.stars?.[key]===true).length;}
+function isMastered(id=current.id) {
+  return !!progress.completed[id]&&(!catalog.levels.find(l=>l.id===Number(id))?.nandChallenge||earnedStars(id)===3);
+}
+function completionStars() {
+  const count=earnedStars();
+  return `<span class="completion-stars" role="img" aria-label="${count} of 3 optimization stars earned">${starKeys.map(key=>`<span class="${progress.completed[current.id]?.stars?.[key]?'earned':''}">${icon('star')}</span>`).join('')}<span class="star-count">${count}/3</span></span>`;
+}
+function showPpaIntroduction() {
+  modal(`<span class="lesson-tag">FROM BUILDING TO ENGINEERING</span><h2>A working circuit is just the beginning.</h2><p>You know how to make signals work. Now the challenge grows: build a correct circuit, then explore how efficiently it works.</p><div class="ppa-introduction"><p><strong>Power</strong> · Make fewer gates switch.</p><p><strong>Performance</strong> · Shorten the longest gate path.</p><p><strong>Area</strong> · Use less gate logic.</p></div><p>A working circuit still completes each task. These challenges add three stars, one per target. Every current PPA challenge has a circuit that meets all three targets together. You can also earn stars with different working designs; earned stars stay yours.</p><p>Real engineers balance these goals: improving one can cost another. Our scores are simplified estimates to help you explore that tradeoff.</p><div class="modal-actions"><button id="start-ppa" class="button primary">Let’s engineer it ${icon('arrow')}</button></div>`, 'ppa-introduction');
+  writeStorage('ppa-introduced',true);
+  $('start-ppa').onclick=()=>$('modal').close();
+}
 function challengeMarkup(result=null) {
   const goal=current.nandChallenge;if(!goal)return '';
-  const score=result?.nandChallenge,best=bestNands();
-  const won=result?!!score?.achieved:best!==null&&best<=goal.target;
-  const checked=score&&result.passed
-    ? score.achieved?`${practice?'This example meets':'This circuit meets'} the target: ${score.used} NAND ${score.used===1?'gate':'gates'}.`
-      : score.otherParts?`Your circuit works. This check used ${score.used} NAND gates and ${score.otherParts} other ${score.otherParts===1?'block':'blocks'}. Rebuild with NANDs only to earn the challenge.`
-      : `Your circuit works with ${score.used} NAND gates. Can you share a result or remove an extra gate?`
-    : 'Make the circuit work first. Passing the expected behavior unlocks Next; this challenge is optional.';
-  return `<section class="nand-challenge ${won?'achieved':''}" aria-label="Optional NAND challenge"><h3>${won?'★':'◇'} ${won&&!practice?'NAND target reached':'Optional NAND challenge'}</h3><p>Use <strong>${goal.target} two-input NAND ${goal.target===1?'gate':'gates'} or fewer</strong>.</p><p class="challenge-feedback">${esc(checked)}</p>${best!==null?`<p class="challenge-best">Your best checked NAND-only circuit: <strong>${best}</strong>.</p>`:''}<details><summary>Counting rules & a hint</summary><p>Every block on the board must be a NAND, except the lesson’s inputs and outputs. All NANDs count, including unused ones. Wires do not count.</p><p>${esc(goal.hint)}</p></details><button class="text-button" data-design-notes>From truth tables to simpler circuits →</button></section>`;
+  const score=result?.designScore,earned=progress.completed[current.id]?.stars||{};
+  const meanSwitching=value=>Number.isInteger(score?.switchingTransitions)&&score.switchingTransitions>0?(value/score.switchingTransitions).toFixed(2):'—';
+  const labels=[['areaStar','Area',`≤ ${goal.target} NAND equivalents`,score?.area],
+    ['depthStar','Performance',`≤ ${goal.depthTarget} NAND stages`,score?.depth],
+    ['powerStar','Power','Switch fewer gates · average ≤ reference',score?meanSwitching(score.switching):null]];
+  return `<section class="nand-challenge ${earnedStars()===3?'achieved':''}" aria-label="Optional PPA targets"><h3>PPA targets · ${earnedStars()}/3 ★</h3><p>Power, Performance and Area use simplified estimates to teach circuit design tradeoffs, not real chip measurements.</p><p>A working circuit wins. All three targets can be met in one circuit. You can also earn stars across different working designs; earlier stars stay earned.</p>${labels.map(([key,label,target,value])=>`<p class="ppa-target ${earned[key]?'earned':''}"><span aria-label="${earned[key]?'Earned':'Not earned'}">${earned[key]?'★':'☆'}</span> <strong>${label}</strong>: ${esc(target)}${score&&result.passed?` · this circuit: ${value}${key==='powerStar'?` / ${meanSwitching(score.switchingTarget)} gate outputs per input change`:''}${score[key]?' ✓':''}`:''}</p>`).join('')}${score&&result.passed&&!score.supported?'<p>This design works, but contains parts outside the scoring library.</p>':''}<details><summary>How the game estimates PPA</summary><p>Area counts NAND equivalents inside all placed blocks: NOT costs 1, AND costs 2. Performance is estimated from the longest NAND path to an output: fewer stages mean a faster circuit. Power estimates the average number of internal gate outputs that switch when one input changes. Switching uses energy: try to make fewer gates switch. The average must be no higher than the reference circuit. We test every single-input change equally and give each internal NAND-equivalent gate output equal weight; transient glitches are ignored. Wires are free. These are teaching estimates, not physical chip measurements or proven minimums.</p><p>Reduce repeated logic for area, shorten paths for performance, and reduce switching for power. Improving one can cost another, but sometimes simplification improves all three.</p></details><button class="text-button" data-design-notes>Explore circuit design →</button></section>`;
 }
 function renderNodeDetail() {
   const el=$('node-detail'); if(!el)return;
@@ -793,7 +807,7 @@ async function checkCircuit() {
     if(r.passed) {
       if(practice){toast('The worked circuit passes every check. Start fresh when you’re ready to build it.','success');return;}
       const record={...progress.completed[id],parts:graph.nodes.filter(n=>!terminal(n)).length};
-      if(r.nandChallenge?.eligible)record.bestNands=Math.min(bestNands(id)??Infinity,r.nandChallenge.used);
+      record.stars=Object.fromEntries(starKeys.map(key=>[key,record.stars?.[key]===true||r.designScore?.[key]===true]));
       progress.completed[id]=record;save();renderSidebar();renderLearn();renderTest();showCompletion(r);
     } else {toast(r.total?`${r.correct} of ${r.total} checks passed. Let’s find the missing piece.`:r.error,'error');status(r.error,true);}
   } catch(e){toast(e.message,'error');}
@@ -823,7 +837,7 @@ function showSkip() {
 }
 function showCompletion(r) {
   const s=parts[current.target],next=nextLevel();
-  modal(`<div class="completion-icon">${icon(current.id===catalog.levels.length?'leaf':'check')}</div><span class="lesson-tag" style="margin-top:22px">${current.id===catalog.levels.length?'FROM A SPARK TO A COMPUTER':'ANOTHER DISCOVERY MADE'}</span><h2>${current.id===catalog.levels.length?'You built a computer.':'You made it work.'}</h2><p>${current.id===catalog.levels.length?'From sending your first message to a working instruction-driven processor. That whole journey is here, in your circuit. Keep exploring in free play.':`Your ${esc(s.name.toLowerCase())} works. Every ${current.sequential?'step in the test sequence':'input combination'} passed. Take a moment — you made this.`}</p><div class="completion-stats"><div><strong>${r.total}</strong><span>checks passed</span></div><div><strong>${graph.nodes.filter(n=>!terminal(n)).length}</strong><span>blocks on board</span></div><div><strong>${Object.keys(progress.completed).length}/${catalog.levels.length}</strong><span>ideas discovered</span></div></div>${challengeMarkup(r)}<div class="chip-unlock"><span class="chip-symbol">${esc(s.symbol)}</span><div><strong>Your new building block</strong><p>${esc(s.name)} is ready for bigger ideas.</p></div></div><div class="modal-actions"><button id="next-lesson" class="button primary">${next?`Next: ${esc(next.title)}`:'Explore free play'} ${icon('arrow')}</button><button id="stay-button" class="button">${r.nandChallenge&&!r.nandChallenge.achieved?'Try the NAND challenge':'Review my circuit'}</button></div>`);
+  modal(`<span class="lesson-tag">${current.id===catalog.levels.length?'FROM A SPARK TO A COMPUTER':'ANOTHER DISCOVERY MADE'}</span><div class="completion-heading"><h2>${current.id===catalog.levels.length?'You built a computer.':'You made it work.'}</h2>${current.nandChallenge?completionStars():''}</div><p>${current.id===catalog.levels.length?'From sending your first message to a working instruction-driven processor. That whole journey is here, in your circuit. Keep exploring in free play.':`Your ${esc(s.name.toLowerCase())} works. Every ${current.sequential?'step in the test sequence':'input combination'} passed. Take a moment — you made this.`}</p><div class="completion-stats"><div><strong>${r.total}</strong><span>checks passed</span></div><div><strong>${graph.nodes.filter(n=>!terminal(n)).length}</strong><span>blocks on board</span></div><div><strong>${Object.keys(progress.completed).length}/${catalog.levels.length}</strong><span>ideas discovered</span></div></div>${challengeMarkup(r)}<div class="chip-unlock"><span class="chip-symbol">${esc(s.symbol)}</span><div><strong>Your new building block</strong><p>${esc(s.name)} is ready for bigger ideas.</p></div></div><div class="modal-actions"><button id="next-lesson" class="button primary">${next?`Next: ${esc(next.title)}`:'Explore free play'} ${icon('arrow')}</button><button id="stay-button" class="button">${current.nandChallenge&&earnedStars()<3?'Explore design targets':'Review my circuit'}</button></div>`);
   $('next-lesson').onclick=()=>{$('modal').close();loadLevel(next?next.id:'sandbox');};$('stay-button').onclick=()=>{$('modal').close();if(taskSheet.matches)returnToBoard();};
 }
 const singleGuidePage=matchMedia('(max-width:760px)');

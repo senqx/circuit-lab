@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <deque>
+#include <set>
 #include <stdexcept>
 #include <utility>
 
@@ -32,6 +33,11 @@ class CompiledCircuit {
 public:
   explicit CompiledCircuit(const Circuit& circuit);
   Result run(const std::vector<int>& inputs, const State& state, bool tick, bool details);
+  std::vector<int> activity() const {
+    std::vector<int> values;
+    for (const PortRef output : m_activityOutputs) values.push_back(value(output));
+    return values;
+  }
 
 private:
   NodePorts expand(const Circuit& circuit, const std::string& prefix, bool top, int depth = 0);
@@ -43,6 +49,7 @@ private:
   std::map<int, int> m_contactNodes;
   std::vector<int> m_inputNodes;
   std::vector<PortRef> m_outputs;
+  std::vector<PortRef> m_activityOutputs;
   std::vector<int> m_order;
 };
 
@@ -124,6 +131,8 @@ NodePorts CompiledCircuit::expand(const Circuit& circuit, const std::string& pre
     const int begin = static_cast<int>(m_nodes.size());
     if (!spec.definition.nodes.empty()) {
       references[node.id] = expand(spec.definition, key + ".", false, depth + 1);
+      if (node.kind == Kind::Nand)
+        for (const PortRef output : references[node.id].outputs) m_activityOutputs.push_back(output);
       // An unwired teaching-switch EN defaults to 0; wired unknowns propagate.
       if (node.kind == Kind::Gate || node.kind == Kind::ClosedGate) {
         m_nodes.at(references[node.id].inputs.at(1).node).unwired = 0;
@@ -427,6 +436,91 @@ Result simulate(const Circuit& circuit, const std::vector<int>& inputs, const St
   }
 }
 
+namespace {
+// Estimate a fixed two-input NAND library. Wires/terminals are free; all placed
+// gates count toward area. Composite outputs retain individual path depths.
+std::vector<int> designDepths(const Circuit& circuit, const std::vector<int>& inputs,
+                             int& area, bool& supported, int nesting = 0) {
+  if (nesting > limits::maxDepth) { supported = false; return {}; }
+  std::map<int, const Node*> nodes;
+  std::map<int, std::vector<int>> depths;
+  std::map<std::pair<int,int>, Wire> incoming;
+  for (const Node& node : circuit.nodes) nodes[node.id] = &node;
+  for (const Wire& wire : circuit.wires) incoming[{wire.to,wire.input}] = wire;
+  int inputIndex = 0;
+  for (const auto& entry : nodes) if (entry.second->kind == Kind::Input) {
+    depths[entry.first] = {inputIndex < static_cast<int>(inputs.size()) ? inputs[inputIndex] : 0};
+    ++inputIndex;
+  }
+  std::set<int> visiting;
+  const auto evaluate = [&](const auto& self, int id) -> std::vector<int> {
+    if (depths.count(id)) return depths.at(id);
+    if (!nodes.count(id) || visiting.count(id)) { supported = false; return {0}; }
+    visiting.insert(id);
+    const Node& node = *nodes.at(id);
+    const Component& spec = component(node.kind);
+    std::vector<int> values;
+    for (int port = 0; port < static_cast<int>(spec.inputs.size()); ++port) {
+      auto found = incoming.find({id,port});
+      int depth = 0;
+      if (found != incoming.end()) {
+        const auto source = self(self,found->second.from);
+        if (found->second.output < static_cast<int>(source.size())) depth = source[found->second.output];
+      }
+      values.push_back(depth);
+    }
+    std::vector<int> output;
+    if (node.kind == Kind::Output) output = values;
+    else if (node.kind == Kind::Nand) {
+      ++area;
+      output = {1 + *std::max_element(values.begin(),values.end())};
+    } else if (!spec.definition.nodes.empty() && !isSequential(node.kind)) {
+      output = designDepths(spec.definition,values,area,supported,nesting+1);
+    } else { supported = false; output.resize(spec.outputs.size(),0); }
+    visiting.erase(id);
+    depths[id] = output;
+    return output;
+  };
+  // Include disconnected placed gates in resource use, without inflating output depth.
+  for (const auto& entry : nodes) evaluate(evaluate,entry.first);
+  std::vector<int> output;
+  for (const auto& entry : nodes) if (entry.second->kind == Kind::Output) {
+    const auto values = depths.at(entry.first);
+    output.push_back(values.empty() ? 0 : values.front());
+  }
+  return output;
+}
+struct SwitchingActivity {
+  int changes = 0;
+  int transitions = 0;
+};
+SwitchingActivity switchingActivity(const Circuit& circuit, const std::vector<TestRow>& rows) {
+  CompiledCircuit compiled(circuit);
+  std::vector<std::vector<int>> settled;
+  for (const TestRow& row : rows) {
+    compiled.run(row.inputs,{},false,false);
+    settled.push_back(compiled.activity());
+  }
+  SwitchingActivity activity;
+  // Test each direction of every single-bit input change equally. No arbitrary
+  // truth-table ordering, and no multi-input transitions or transient glitches.
+  for (std::size_t a = 0; a < rows.size(); ++a) {
+    for (std::size_t b = 0; b < rows.size(); ++b) {
+      int changedBits = 0;
+      for (std::size_t input = 0; input < rows[a].inputs.size(); ++input) {
+        unsigned difference = static_cast<unsigned>(rows[a].inputs[input] ^ rows[b].inputs[input]);
+        while (difference) { changedBits += difference & 1u; difference >>= 1; }
+      }
+      if (changedBits != 1) continue;
+      ++activity.transitions;
+      for (std::size_t i = 0; i < settled[a].size(); ++i)
+        if (settled[a][i] != settled[b][i]) ++activity.changes;
+    }
+  }
+  return activity;
+}
+} // namespace
+
 Check check(const Circuit& circuit, int levelId) {
   Check result;
   try {
@@ -456,6 +550,21 @@ Check check(const Circuit& circuit, int levelId) {
     }
 
     result.passed = result.correct == result.total;
+    if (lesson.nandTarget && result.passed) {
+      result.design.areaTarget = lesson.nandTarget;
+      result.design.depthTarget = lesson.depthTarget;
+      result.design.supported = true;
+      const auto depths = designDepths(circuit,{},result.design.area,result.design.supported);
+      if (!depths.empty()) result.design.depth = *std::max_element(depths.begin(),depths.end());
+      result.design.areaStar = result.design.supported && result.design.area <= result.design.areaTarget;
+      result.design.depthStar = result.design.supported && result.design.depth <= result.design.depthTarget;
+      const auto activity = switchingActivity(circuit,result.rows);
+      result.design.switching = activity.changes;
+      result.design.switchingTransitions = activity.transitions;
+      result.design.switchingTarget = switchingActivity(reference(levelId),result.rows).changes;
+      result.design.powerStar = result.design.supported
+          && result.design.switching <= result.design.switchingTarget;
+    }
     if (lesson.nandTarget) {
       result.nand.eligible = result.passed && result.nand.otherParts == 0;
       result.nand.achieved = result.nand.eligible && result.nand.used <= lesson.nandTarget;

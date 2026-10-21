@@ -1,0 +1,31 @@
+import {connectBrowser} from './cdp.mjs';
+const b=await connectBrowser(process.argv[3]);const {send,js,wait,assert,click}=b;
+try{
+ await send('Page.enable');await send('Network.enable');await send('Network.setCacheDisabled',{cacheDisabled:true});
+ await send('Storage.clearDataForOrigin',{origin:new URL(process.argv[2]).origin,storageTypes:'service_workers,cache_storage'});
+ const fixture={version:2,level:5,inputs:[0,0],circuit:{nodes:[{id:1,kind:'INPUT',width:1,x:0,y:0},{id:2,kind:'INPUT',width:1,x:0,y:180},{id:100,kind:'NAND',width:1,x:200,y:0},{id:101,kind:'NOT',width:1,x:400,y:0},{id:50,kind:'OUTPUT',width:1,x:600,y:0}],wires:[{from:1,output:0,to:100,input:0},{from:2,output:0,to:100,input:1},{from:100,output:0,to:101,input:0},{from:101,output:0,to:50,input:0}]}};
+ const setup=await send('Page.addScriptToEvaluateOnNewDocument',{source:`localStorage.removeItem('signal-garden-v2:ppa-introduced');localStorage.setItem('signal-garden-v2:welcome','true');localStorage.setItem('signal-garden-v2:last','5');localStorage.setItem('signal-garden-v2:circuit:5',${JSON.stringify(JSON.stringify(fixture))});localStorage.setItem('signal-garden-v2:progress','{"completed":{}}');`});
+ await send('Page.navigate',{url:process.argv[2]});await wait("document.body && !document.body.classList.contains('app-opening') && !!document.querySelector('[data-node=\"101\"]')");
+ await wait("!!document.querySelector('#start-ppa')");
+ await assert("document.querySelector('#modal-content').textContent.includes('FROM BUILDING TO ENGINEERING')",'First optimization lesson introduces the engineering tradeoff');
+ await click('#start-ppa');
+ await click('#check-button');await wait("!!document.querySelector('#stay-button')");
+ await assert("document.querySelector('#modal-content').textContent.includes('3/3 ★') && document.querySelector('#modal-content').textContent.includes('Power')",'Mixed NOT/NAND AND earns independent PPA stars');
+ await assert("document.querySelector('#modal-content').textContent.includes('1.00 / 1.00 gate outputs per input change')",'Power displays average switching per single-input change');
+ await assert("document.querySelectorAll('.completion-stars>span.earned').length===3 && document.querySelectorAll('.completion-stars svg').length===3",'Completion heading shows three filled reward stars');
+ await assert("!document.querySelector('.completion-icon')",'Completion omits the redundant large icon');
+ await b.delay(250);
+ await assert("JSON.parse(localStorage.getItem('signal-garden-v2:progress')).completed['5'].stars.powerStar",'PPA stars persist');
+ await click('#stay-button');await click('#journey-nav');
+ await assert("document.querySelector('[data-level=\"5\"]').classList.contains('mastered') && document.querySelector('[data-level=\"5\"] .journey-stars').textContent.trim()==='3/3'",'Journey shows gold mastery and explicit star count');
+ const first={version:2,level:1,inputs:[0],circuit:{nodes:[{id:1,kind:'INPUT',width:1,x:0,y:0},{id:50,kind:'OUTPUT',width:1,x:200,y:0}],wires:[{from:1,output:0,to:50,input:0}]}};
+ await js(`localStorage.setItem('signal-garden-v2:circuit:1',${JSON.stringify(JSON.stringify(first))})`);
+ await assert("!!document.querySelector('[data-level=\"5\"] .lesson-bullet svg') && !!document.querySelector('[data-level=\"5\"] .journey-stars svg')",'Learning-path rewards use SVG vector icons');
+ await click('[data-level="1"]');
+ await assert("!document.querySelector('#start-ppa')",'Engineering introduction is shown only once');
+ await click('#check-button');await wait("!!document.querySelector('#stay-button')");
+ await assert("!document.querySelector('.completion-icon') && !document.querySelector('.completion-stars')",'Introductory completion omits redundant icons and optimization stars');
+ await click('#stay-button');await click('#journey-nav');
+ await assert("document.querySelector('[data-level=\"1\"]').classList.contains('mastered')",'Introductory lesson is gold in the learning path');
+ await send('Page.removeScriptToEvaluateOnNewDocument' ,{identifier:setup.identifier});
+}finally{b.close();}

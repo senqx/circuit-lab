@@ -1,5 +1,5 @@
 {
-  "appId": "io.github.senqx.circuitlab",
+  "appId": "senqx.circuitlab",
   "appName": "CircuIT Lab",
   "webDir": "../../dist/mobile",
   "backgroundColor": "#17252c",

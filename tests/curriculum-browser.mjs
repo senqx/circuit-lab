@@ -8,7 +8,7 @@ export async function curriculumChecks({send,js,wait,assert,click,screenshot}) {
   const record="JSON.parse(localStorage.getItem('signal-garden-v2:progress'))?.completed?.['8']";
   async function reload(fixture,resetProgress=false) {
     const source=fixture?`localStorage.setItem('signal-garden-v2:circuit:${fixture.level}',${JSON.stringify(JSON.stringify(fixture))});localStorage.setItem('signal-garden-v2:last',${JSON.stringify(JSON.stringify(fixture.level))});`:'';
-    const setup=await send('Page.addScriptToEvaluateOnNewDocument',{source:source+`localStorage.setItem('signal-garden-v2:welcome','true');${resetProgress?"localStorage.setItem('signal-garden-v2:progress','{\"completed\":{}}');":''}`});
+    const setup=await send('Page.addScriptToEvaluateOnNewDocument',{source:source+`localStorage.setItem('signal-garden-v2:welcome','true');localStorage.setItem('signal-garden-v2:ppa-introduced','true');${resetProgress?"localStorage.setItem('signal-garden-v2:progress','{\"completed\":{}}');":''}`});
     await js('window.__oldDocument=true');await send('Page.reload');
     await wait("!window.__oldDocument && (document.body && !document.body.classList.contains('app-opening') && document.querySelector('[data-node]'))");
     await send('Page.removeScriptToEvaluateOnNewDocument',{identifier:setup.identifier});
@@ -56,11 +56,11 @@ export async function curriculumChecks({send,js,wait,assert,click,screenshot}) {
 
   const mixed={version:2,level:8,inputs:[0,1],circuit:{nodes:[node(1,'INPUT',0,0),node(2,'INPUT',0,216),node(100,'NOT',216,0),node(101,'NOT',216,216),node(102,'AND',432,0),node(103,'AND',432,216),node(104,'OR',648,108),node(50,'OUTPUT',864,108)],wires:[wire(1,100),wire(2,101),wire(100,102),wire(2,102,1),wire(1,103),wire(101,103,1),wire(102,104),wire(103,104,1),wire(104,50)]}};
   await reload(mixed,true);await wait(`${lamp}==='1'`);
-  await assert("document.querySelector('[data-forward]').textContent.includes('Skip') && document.querySelector('.nand-challenge').textContent.includes('4 two-input NAND gates')",'XOR separates the truth-table requirement from its optional NAND goal');
+  await assert("document.querySelector('[data-forward]').textContent.includes('Skip') && document.querySelector('.nand-challenge').textContent.includes('4 NAND equivalents')",'XOR separates the truth-table requirement from its optional PPA targets');
   await click('#check-button');await wait("document.getElementById('modal').open && document.getElementById('stay-button')");
-  await assert("document.querySelector('[data-forward]').textContent.includes('Next') && document.querySelector('#modal-content .challenge-feedback').textContent.includes('5 other blocks')",'A correct mixed-gate XOR unlocks Next while explaining the NAND-only challenge');
+  await assert("document.querySelector('[data-forward]').textContent.includes('Next') && document.querySelector('#modal-content .nand-challenge').textContent.includes('this circuit: 9')",'A correct mixed-gate XOR unlocks Next while reporting the expanded Area score');
   await js('window.dispatchEvent(new Event("beforeunload"))');
-  await assert(`!!${record} && ${record}.bestNands===undefined`,'Mixed-gate correctness records completion without a NAND award');
+  await assert(`!!${record} && ${record}.stars.areaStar===false`,'Mixed-gate correctness records completion without the Area star');
   await click('#stay-button');if(await js("document.querySelector('#results-dialog').open"))await click('#close-results');await click('#learn-panel [data-design-notes]');
   await assert("document.querySelector('.book-index strong').textContent==='Circuit design' && document.getElementById('book-spread').textContent.includes('Boolean algebra') && document.getElementById('book-spread').textContent.includes('sum of products') && document.getElementById('book-spread').textContent.includes('Real chips use a mixture')",'The challenge opens the Boolean algebra, construction and simplification crash course directly');
   await click('[data-guide-spread="0"]');
@@ -72,19 +72,19 @@ export async function curriculumChecks({send,js,wait,assert,click,screenshot}) {
   const nand={version:2,level:8,inputs:[0,1],circuit:{nodes:[node(1,'INPUT',0,0),node(2,'INPUT',0,216),node(100,'NAND',216,108),node(101,'NAND',432,0),node(102,'NAND',432,216),node(103,'NAND',648,108),node(50,'OUTPUT',864,108)],wires:[wire(1,100),wire(2,100,1),wire(1,101),wire(100,101,1),wire(2,102),wire(100,102,1),wire(101,103),wire(102,103,1),wire(103,50)]}};
   await reload(nand);await click('#check-button');await wait("document.querySelector('#modal-content .nand-challenge.achieved')");
   await js('window.dispatchEvent(new Event("beforeunload"))');
-  await assert(`${record}.bestNands===4 && document.querySelector('[data-level="8"] .lesson-bullet').textContent==='★'`,'Four NANDs earn a saved best count and a journey star');
+  await assert(`${record}.stars.areaStar && ${record}.stars.depthStar && ${record}.stars.powerStar && !!document.querySelector('[data-level="8"] .lesson-bullet svg')`,'Four NANDs earn saved PPA stars and a vector journey star');
   await screenshot('23-nand-achievement.png');await click('#stay-button');
   const larger=structuredClone(nand);larger.circuit.nodes.push(node(200,'NAND',648,324));
-  await reload(larger);await click('#check-button');await wait("document.querySelector('#modal-content .challenge-feedback')");
-  await assert("document.querySelector('#modal-content .challenge-feedback').textContent.includes('works with 5 NAND gates')",'Unused gates count in the checked circuit');
+  await reload(larger);await click('#check-button');await wait("document.querySelector('#modal-content .nand-challenge')");
+  await assert("document.querySelector('#modal-content .nand-challenge').textContent.includes('this circuit: 5')",'Unused gates count in the checked circuit');
   await js('window.dispatchEvent(new Event("beforeunload"))');
-  await assert(`${record}.bestNands===4`,'A larger valid circuit preserves the previous best');
+  await assert(`${record}.stars.areaStar && ${record}.stars.depthStar && ${record}.stars.powerStar`,'A larger valid circuit preserves the previous stars');
   await click('#stay-button');await reload();
-  await assert("document.querySelector('#learn-panel .challenge-best').textContent.includes('4') && document.querySelector('[data-forward]').textContent.includes('Next')",'Completion and best count survive a page reload');
+  await assert("document.querySelector('#learn-panel .nand-challenge').textContent.includes('3/3 ★') && document.querySelector('[data-forward]').textContent.includes('Next')",'Completion and stars survive a page reload');
 
   await reload({...nand,practice:true},true);await click('#check-button');await wait("document.querySelector('.test-badge.success')");
   await js('window.dispatchEvent(new Event("beforeunload"))');
-  await assert(`!${record} && document.querySelector('[data-forward]').textContent.includes('Skip') && !document.getElementById('modal').open`,'Checking a worked example earns neither completion nor a NAND award');
+  await assert(`!${record} && document.querySelector('[data-forward]').textContent.includes('Skip') && !document.getElementById('modal').open`,'Checking a worked example earns neither completion nor PPA stars');
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
   if(await js("document.querySelector('#results-dialog').open"))await click('#close-results');await click('#learn-panel [data-design-notes]');
   await assert("document.getElementById('modal').scrollWidth<=document.getElementById('modal').clientWidth && document.querySelectorAll('.book-page').length===1",'Design lessons show one readable page at a time in a narrow handbook');

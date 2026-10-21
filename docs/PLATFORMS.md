@@ -121,3 +121,7 @@ Credentials and signing files belong outside the repository. This device uses
 owner-only `~/.local/share/circuit-lab-private/`; its Git helper points at that
 location. iOS lifecycle/share bindings can be reused, but the CircuitFiles Save/
 Open bridge needs an iOS implementation in the future Xcode project.
+
+The current application ID and Java namespace are `senqx.circuitlab`. This is a
+new Android identity: it installs separately from earlier previews with the
+`io.github.senqx.circuitlab` ID. No progress migration is provided.

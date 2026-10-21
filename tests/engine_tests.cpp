@@ -90,6 +90,26 @@ void testNandChallenges() {
   andNands.nodes.push_back({101, Kind::Nand});
   andNands.wires = {{1, 0, 100, 0}, {2, 0, 100, 1}, {100, 0, 101, 0}, {100, 0, 101, 1}, {101, 0, 50, 0}};
   expect(check(andNands, 5).passed, "AND made from two NANDs passes every row");
+  const Check ppaAnd = check(andNands, 5);
+  expect(ppaAnd.design.area == 2 && ppaAnd.design.depth == 2
+      && ppaAnd.design.areaStar && ppaAnd.design.depthStar && ppaAnd.design.powerStar,
+      "Two NAND AND meets all three independent PPA teaching targets");
+  expect(ppaAnd.design.switchingTransitions == 8 && ppaAnd.design.switching == 8,
+      "Two-input AND averages one switching gate output across eight single-input changes");
+  Circuit extraSwitching = andNands;
+  extraSwitching.nodes.push_back({102, Kind::Not});
+  extraSwitching.wires.push_back({1, 0, 102, 0});
+  const Check extraPower = check(extraSwitching, 5);
+  expect(extraPower.passed && extraPower.design.switching == 12
+      && !extraPower.design.powerStar,
+      "Unused active gates consume estimated power even though the answer remains correct");
+  Circuit mixedAnd = andNands;
+  mixedAnd.nodes.back().kind = Kind::Not;
+  mixedAnd.wires.erase(mixedAnd.wires.begin() + 3);
+  const Check mixedAndScore = check(mixedAnd,5);
+  expect(mixedAndScore.passed && mixedAndScore.design.area == 2
+      && mixedAndScore.design.areaStar && mixedAndScore.design.depthStar,
+      "NOT plus NAND counts as two NAND equivalents");
   andNands.nodes.push_back({102, Kind::Not});
   expect(check(andNands, 5).passed, "An unused unwired spare does not fail a correct circuit");
   Circuit legacyNand = blank(Kind::Nand);
@@ -129,6 +149,11 @@ void testNandChallenges() {
       expect(
           std::find(lesson.allowed.begin(), lesson.allowed.end(), Kind::Nand) != lesson.allowed.end(),
           "Every NAND challenge supplies NAND gates");
+      expect(result.design.supported && result.design.areaStar && result.design.depthStar && result.design.powerStar,
+          "One construction meets all three PPA targets: " + lesson.title);
+      const Check referenceScore = check(reference(lesson.id),lesson.id);
+      expect(referenceScore.design.supported && referenceScore.design.powerStar,
+          "Reference construction demonstrates an achievable power target: " + lesson.title);
       ++challenges;
     }
   }

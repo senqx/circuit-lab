@@ -113,7 +113,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 Android Studio or Gradle creates the usual local debug certificate. Keep real
 release signing keys and passwords outside Git. Choose a permanent application
 ID and signing identity before distribution; the preview ID is
-`io.github.senqx.circuitlab`.
+`senqx.circuitlab`.
 
 The prepared preview was signed separately with the SDK's `apksigner` and checked
 with `apksigner verify` and `zipalign -c 4`. Keep the key and password outside the repository in an owner-only directory.

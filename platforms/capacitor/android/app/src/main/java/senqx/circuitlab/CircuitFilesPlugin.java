@@ -1,4 +1,4 @@
-package io.github.senqx.circuitlab;
+package senqx.circuitlab;
 
 import android.app.Activity;
 import android.content.Intent;

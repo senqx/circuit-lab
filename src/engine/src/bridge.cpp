@@ -173,7 +173,7 @@ std::string componentJson(const Component& spec) {
 std::string levelJson(const Level& lesson) {
   const std::vector<TestRow> vectors = testVectors(lesson.id);
   const std::string challenge
-      = lesson.nandTarget ? objectJson({{"target", integerJson(lesson.nandTarget)}, {"hint", quote(lesson.nandHint)}})
+      = lesson.nandTarget ? objectJson({{"target", integerJson(lesson.nandTarget)}, {"hint", quote(lesson.nandHint)}, {"depthTarget", integerJson(lesson.depthTarget)}})
                           : "null";
   const std::string allowed = arrayJson(lesson.allowed, [](Kind kind) {
     return quote(component(kind).key);
@@ -385,6 +385,13 @@ const char* circuit_check(void* p_handle, int levelId) {
         {"error", quote(result.error)},
         {"rows", arrayJson(result.rows, rowJson)},
         {"nandChallenge", challengeJson(result.nand)},
+        {"designScore", objectJson({{"area",integerJson(result.design.area)},
+          {"depth",integerJson(result.design.depth)}, {"supported",booleanJson(result.design.supported)},
+          {"areaStar",booleanJson(result.design.areaStar)}, {"depthStar",booleanJson(result.design.depthStar)},
+          {"switching",integerJson(result.design.switching)},
+          {"switchingTarget",integerJson(result.design.switchingTarget)},
+          {"switchingTransitions",integerJson(result.design.switchingTransitions)},
+          {"powerStar",booleanJson(result.design.powerStar)}})},
     });
   });
 }

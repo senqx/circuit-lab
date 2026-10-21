@@ -1,3 +1,17 @@
+# Android 1.0.0-rc.1 — phone-test candidate
+
+Prepared on 21 October 2026. Publication and the final 1.0.0 version are pending physical-device acceptance.
+
+This candidate changes the application ID to `senqx.circuitlab`, adds NAND-design handbook pages and PPA teaching targets, and updates completion rewards with SVG stars. All eight PPA lessons have a tested single-circuit construction meeting all three targets. Earlier lessons earn gold completion without optimization targets.
+
+Local APK: `dist/releases/circuit-lab-android-1.0.0-rc.1.apk`, version code 5. Signed with the existing preview identity; APK signature v2/v3 and alignment verified. SHA-256: `3138509bb72d0be3342a45768fb316e06d9514fc915b624917d20246bbf70aa4`.
+
+Validation: native CTest; nine Python integration/packaging/parity tests; all 24 lessons and 2,458 cases across native/WebAssembly; curriculum and portrait browser regressions (10 handbook pages, responsive layouts, separate grading/reference dialogs, bus inputs and keyboard access); packaged mobile entry, persistence and wiring; packaged PPA stars and introduction; native lifecycle/file adapter tests. Android `assembleRelease` and `lintRelease` passed (0 errors; 10 existing tooling/resource/icon warnings).
+
+Phone acceptance: launch offline; read/swipe the handbook; build and check an early lesson; enter PPA challenges and inspect the introduction; check 0–3 reward stars and centered gold SVG badges; rotate, zoom and wire overlapping parts; background/reopen; use Back; save/open/share a circuit. This package installs separately from `io.github.senqx.circuitlab` as agreed; prior-package progress is not migrated.
+
+---
+
 # Release validation — CircuIT Lab
 
 WebAssembly migration, curriculum update, and C++ style refactor validated on 16 October 2026. Android beta.1 and the responsive-layout beta.2 were built and checked on 19 October 2026. The game uses a C++ engine running in a Web Worker on both platforms. No public web deployment or app-store publication was performed. Android test packages are distributed separately as GitHub prereleases.
@@ -158,7 +172,7 @@ coverage is now part of that suite, including desktop-window resizing from
 phone emulation on/off at the same width. Checks cover first-launch guidance,
 saved-circuit reloads, controls without page scrolling, touch and keyboard table
 selection, multibit inputs and pagination, lesson transitions, free-play return,
-rapid panel toggles, and reduced motion. Handbook checks visit all eight pages,
+rapid panel toggles, and reduced motion. Handbook checks visit all ten pages,
 resize across the 760/761-pixel boundary and during a turn, and verify page
 numbers and accessible return controls. Expectations have independent pagination,
 keyboard dismissal, and no task tabs. Screenshots were inspected. Existing editor,
