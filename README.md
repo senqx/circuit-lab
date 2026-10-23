@@ -6,6 +6,12 @@ Curiosity is all you need. Build logical circuits through 24 discoveries, from a
 
 ![CircuIT Lab workbench](docs/workbench.png)
 
+## Play on Android
+
+Download the signed APK from the [GitHub release](https://github.com/senqx/circuit-lab/releases/tag/v1.0.0-rc.1). The tested gameplay is also prepared as version **1.0.0** for Google Play; store publication is pending. The AAB asset is for Play Console submission, not direct installation.
+
+[Privacy policy](docs/PRIVACY.md) · [Android setup](docs/ANDROID.md) · [Release checkpoint](docs/RELEASE.md)
+
 ## Run from source
 
 Install Python 3.10+ and either Docker or [Emscripten](https://emscripten.org/docs/getting_started/downloads.html). The Emscripten option also needs CMake 3.16+ and a supported build tool such as Make or Ninja. Docker supplies the compiler and build tools through a pinned official Emscripten image; its first download is sizeable.

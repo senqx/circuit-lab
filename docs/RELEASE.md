@@ -1,6 +1,20 @@
+# Android 1.0.0 — accepted gameplay checkpoint
+
+Checkpoint recorded on 23 October 2026. The player tested 1.0.0-rc.1 on a phone and accepted the app for the initial release. Version 1.0.0 uses the same game assets and engine, with Android version code increased from 5 to 6. Android `assembleRelease`, `bundleRelease` and `lintRelease` passed; the signed AAB verified successfully.
+
+- Application ID: `senqx.circuitlab`.
+- Submission bundle: `dist/releases/circuit-lab-android-1.0.0.aab` (3,630,461 bytes).
+- AAB SHA-256: `373b8deaf519701f09206131f2bc24e3d9b87ae50aa6472e035daa6824700a19`.
+- [Published AAB](https://github.com/senqx/circuit-lab/releases/download/v1.0.0-rc.1/circuit-lab-android-1.0.0.aab) is attached to the existing rc.1 release; its embedded version is 1.0.0.
+- [Privacy policy](PRIVACY.md), [listing artwork and screenshots](../assets/google-play/) are committed.
+
+Google Play internal-test acceptance, listing/declarations, any required closed testing and production review remain pending. No Google Play production publication is claimed. There are no known required gameplay changes at this checkpoint; later work should preserve the validated scoring, lesson IDs, saves and package identity.
+
+---
+
 # Android 1.0.0-rc.1 — phone-test candidate
 
-Prepared on 21 October 2026. Publication and the final 1.0.0 version are pending physical-device acceptance.
+Prepared on 21 October 2026. Published as a GitHub prerelease; subsequently accepted by the player on a phone. See the 1.0.0 checkpoint above.
 
 This candidate changes the application ID to `senqx.circuitlab`, adds NAND-design handbook pages and PPA teaching targets, and updates completion rewards with SVG stars. All eight PPA lessons have a tested single-circuit construction meeting all three targets. Earlier lessons earn gold completion without optimization targets.
 

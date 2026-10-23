@@ -1,4 +1,4 @@
-# Android preview
+# Android
 
 CircuIT Lab uses Capacitor 8.5.3 for Android. The package contains the shared UI
 and C++ engine compiled to WebAssembly. It works from bundled assets, with no
@@ -20,16 +20,20 @@ validation. Physical-device verification remains required.
 
 ## Test the prepared APK on a phone
 
-Open [beta.4 on GitHub Releases](https://github.com/senqx/circuit-lab/releases/tag/v1.0.0-beta.4)
-on the phone and download `circuit-lab-android-beta.4.apk` from **Assets**.
-Install beta.4 over beta.3 without uninstalling: both use the same application ID
-and signing certificate, and beta.4 increases the version code to 4. Confirm that
-saved circuits and progress remain after updating.
+Open [1.0.0-rc.1 on GitHub Releases](https://github.com/senqx/circuit-lab/releases/tag/v1.0.0-rc.1)
+and download `circuit-lab-android-1.0.0-rc.1.apk` from **Assets**. This is the
+phone-tested gameplay build. It uses `senqx.circuitlab` and installs separately
+from beta.4 and earlier previews, which used `io.github.senqx.circuitlab`.
+Prior-package progress is not migrated.
 
-The prepared APK is `dist/circuit-lab-android-beta.4.apk`, with a `.sha256`
-checksum beside it. Beta.4 is **3,744,565 bytes (3.74 MB / 3.57 MiB)** and uses the
-local preview certificate, not a production signing identity. Build outputs and
-signing material remain ignored and excluded from release sources.
+For Google Play testing, upload `circuit-lab-android-1.0.0.aab`, available in the
+same release. Its embedded version is **1.0.0**, version code **6**. An AAB cannot
+be installed directly; use Play Console internal testing. Version code 6 can
+update rc.1 (code 5) when the installed signing identity matches. With Play App
+Signing, Google’s distribution certificate may differ from the local APK key.
+
+Build outputs and signing material remain ignored and excluded from source.
+See [release validation](RELEASE.md) for artifact checksums and checkpoint status.
 
 Open the installed app in airplane mode to verify bundled offline startup.
 
