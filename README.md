@@ -8,7 +8,9 @@ Curiosity is all you need. Build logical circuits through 24 discoveries, from a
 
 ## Play on Android
 
-Download the signed APK from the [GitHub release](https://github.com/senqx/circuit-lab/releases/tag/v1.0.0-rc.1). The tested gameplay is also prepared as version **1.0.0** for Google Play; store publication is pending. The AAB asset is for Play Console submission, not direct installation.
+**[Get CircuIT Lab on Google Play](https://play.google.com/store/apps/details?id=senqx.circuitlab)**
+
+Version **1.0.0** is published on Google Play. You can also download the signed APK from the [GitHub release](https://github.com/senqx/circuit-lab/releases/tag/v1.0.0-rc.1). The AAB asset is for Play Console submission, not direct installation.
 
 [Privacy policy](docs/PRIVACY.md) · [Android setup](docs/ANDROID.md) · [Release checkpoint](docs/RELEASE.md)
 
@@ -63,13 +65,11 @@ docker run --rm -p 127.0.0.1:8000:8080 circuit-lab:release
 
 See [deployment instructions](docs/DEPLOYMENT.md) for static hosting, updates, containers, and the optional native HTTP service. [Platform integration](docs/PLATFORMS.md) explains shared code and the remaining work for packaged apps. [Release validation](docs/RELEASE.md) records the validation scope.
 
-## Android preview
-
-Download [Android beta.2](https://github.com/senqx/circuit-lab/releases/tag/v1.0.0-beta.2) from GitHub Releases (**3.61 MB**). Open the `.apk` asset on your phone to install it; source archives are for developers. Install it over beta.1 to retain your saved circuits and progress.
+## Android development
 
 The Android package uses Capacitor 8.5.3 and bundles the same UI and WebAssembly engine for offline play. See [Android setup and phone testing](docs/ANDROID.md) for prerequisites, build commands, installation, and the test checklist. Android development also needs Node.js 22+, JDK 21, and the Android SDK; web development does not.
 
-This is a preview for device testing. Native file export, Back navigation, and OS lifecycle integration still need work before a mobile release. iOS packaging comes later. Desktop users can play in the browser or install the PWA; desktop installers are deferred.
+The Android app supports native file import/export, sharing, Back navigation, and lifecycle integration. iOS packaging comes later. Desktop users can play in the browser or install the PWA; desktop installers are deferred.
 
 ## Learn and experiment
 
@@ -111,7 +111,7 @@ Optional integrations → C++ API or Python HTTP adapter → Same engine (native
 
 The C++17 library owns all component definitions, signal propagation, validation, memory, lesson specifications, and checking. Advanced blocks expand into ordinary circuits made from earlier parts. JavaScript handles editing, presentation, and argument conversion. The optional Python adapter supports native integrations. Neither implements gate evaluation.
 
-Mobile uses Capacitor; desktop uses the web/PWA. Both share the UI and WebAssembly engine, with small platform adapters where needed. The UI uses standard HTML, CSS, JavaScript, and SVG. Responsive layouts and pointer events are shared. The Android preview is included; testing on actual devices and the remaining native integrations are the next steps.
+Mobile uses Capacitor; desktop uses the web/PWA. Both share the UI and WebAssembly engine, with small platform adapters where needed. The UI uses standard HTML, CSS, JavaScript, and SVG. Responsive layouts and pointer events are shared. The Android app is published on Google Play; iOS packaging is planned.
 
 Independent behavioral specifications deliberately check the recipes against expected answers. Alternative constructions and unused unwired parts are accepted; using the finished target chip cannot complete its own lesson.
 
